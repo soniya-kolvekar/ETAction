@@ -770,10 +770,10 @@ export default function RouteIntelligencePage() {
 
             <div>
 
-              {upcomingTrains.map((train) => (
+              {currentTrains.map((train) => (
 
                 <button
-                  key={`${train.time}-${train.number}`}
+                  key={`${train.number}`}
                   onClick={() =>
                     handleTrainClick(train.number)
                   }
@@ -783,7 +783,7 @@ export default function RouteIntelligencePage() {
                   <div className="w-[42px]">
 
                     <p className="text-[10px] font-bold text-[#52647b]">
-                      {train.time}
+                      {train.delay}
                     </p>
 
                   </div>
@@ -827,7 +827,7 @@ export default function RouteIntelligencePage() {
                   </span>
 
 
-                  <ChevronRightIcon />
+                  <ChevronRight size={16} className="text-[#a0abc0]" />
 
                 </button>
 
