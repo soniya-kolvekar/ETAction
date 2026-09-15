@@ -11,107 +11,8 @@ import {
   AlertTriangle,
 } from "lucide-react";
 
-const trainData = {
-  "12685": {
-    name: "Mangaluru Express",
-    status: "Delayed",
-    delay: "+12 min",
-    currentLocation: "Hassan",
-    from: "Mangaluru",
-    destination: "Bengaluru",
-    speed: "64 km/h",
-    platform: "2",
-  },
-
-  "16526": {
-    name: "Karnataka Express",
-    status: "Minor delay",
-    delay: "+4 min",
-    currentLocation: "Udupi",
-    from: "Mangaluru",
-    destination: "Bengaluru",
-    speed: "71 km/h",
-    platform: "1",
-  },
-
-  "16575": {
-    name: "Gomateshwara Express",
-    status: "On time",
-    delay: "On time",
-    currentLocation: "Kundapura",
-    from: "Mangaluru",
-    destination: "Bengaluru",
-    speed: "68 km/h",
-    platform: "3",
-  },
-
-  "12789": {
-    name: "Coastal Express",
-    status: "Upcoming",
-    delay: "On time",
-    currentLocation: "Mangaluru",
-    from: "Mangaluru",
-    destination: "Bengaluru",
-    speed: "--",
-    platform: "4",
-  },
-
-  "12845": {
-    name: "Intercity Express",
-    status: "Upcoming",
-    delay: "On time",
-    currentLocation: "Mangaluru",
-    from: "Mangaluru",
-    destination: "Bengaluru",
-    speed: "--",
-    platform: "5",
-  },
-};
-
-const stations = [
-  {
-    name: "Mangaluru",
-    code: "MAQ",
-    time: "06:15",
-    status: "completed",
-  },
-  {
-    name: "Udupi",
-    code: "UD",
-    time: "07:25",
-    status: "completed",
-  },
-  {
-    name: "Kundapura",
-    code: "KU",
-    time: "08:10",
-    status: "current",
-  },
-  {
-    name: "Shivamogga",
-    code: "SME",
-    time: "09:45",
-    status: "upcoming",
-  },
-  {
-    name: "Hassan",
-    code: "HAS",
-    time: "11:05",
-    status: "upcoming",
-  },
-  {
-    name: "Yeshwanthpur",
-    code: "YPR",
-    time: "13:30",
-    status: "upcoming",
-  },
-  {
-    name: "Bengaluru",
-    code: "SBC",
-    time: "14:00",
-    status: "upcoming",
-  },
-];
+import { useState, useEffect } from "react";
+import { fetchApi } from "../../../../services/api";
 
 export default function TrainPage() {
   const router = useRouter();
@@ -119,16 +20,74 @@ export default function TrainPage() {
 
   const trainNumber = params.trainNumber;
 
-  const train = trainData[trainNumber] || {
-    name: "Unknown Train",
-    status: "Unknown",
+  const [train, setTrain] = useState({
+    name: "Loading...",
+    status: "Loading...",
     delay: "--",
     currentLocation: "--",
     from: "--",
     destination: "--",
     speed: "--",
     platform: "--",
-  };
+  });
+  const [stations, setStations] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    if (!trainNumber) return;
+
+    const loadTrainData = async () => {
+      try {
+        setLoading(true);
+        const [trainRes, statusRes, scheduleRes] = await Promise.all([
+          fetchApi(`/trains/${trainNumber}`),
+          fetchApi(`/trains/${trainNumber}/status`),
+          fetchApi(`/trains/${trainNumber}/schedule`)
+        ]);
+
+        let updatedTrain = { ...train };
+        if (trainRes.success && trainRes.data) {
+          updatedTrain.name = trainRes.data.train_name || trainRes.data.train_number;
+          updatedTrain.from = trainRes.data.origin_station_id || 'Unknown';
+          updatedTrain.destination = trainRes.data.destination_station_id || 'Unknown';
+        } else {
+          updatedTrain.name = "Unknown Train";
+        }
+
+        if (statusRes.success && statusRes.data) {
+          updatedTrain.status = statusRes.data.status || 'UNKNOWN';
+          updatedTrain.delay = statusRes.data.current_delay_min > 0 ? `+${statusRes.data.current_delay_min} min` : 'On time';
+          updatedTrain.currentLocation = statusRes.data.current_section_id || '--';
+        }
+
+        setTrain(updatedTrain);
+
+        if (scheduleRes.success && scheduleRes.data) {
+          const uniqueStations = new Map();
+          scheduleRes.data.forEach(s => {
+            if (!uniqueStations.has(s.station_id)) uniqueStations.set(s.station_id, s);
+          });
+          const deduplicated = Array.from(uniqueStations.values());
+          const sortedSchedule = deduplicated.sort((a, b) => new Date(a.scheduled_arrival_time) - new Date(b.scheduled_arrival_time));
+          setStations(sortedSchedule.map(s => {
+            const timeObj = new Date(s.scheduled_arrival_time);
+            return {
+              name: s.station_id,
+              code: s.station_id,
+              time: isNaN(timeObj) ? '--:--' : timeObj.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+              status: s.actual_arrival_time ? 'completed' : 'upcoming'
+            };
+          }));
+        }
+      } catch (err) {
+        console.error("Error fetching train details:", err);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadTrainData();
+  }, [trainNumber]);
 
   return (
     <main className="min-h-screen bg-[#f5f7fa] text-[#192f4d]">
@@ -159,7 +118,7 @@ export default function TrainPage() {
 
             <div>
               <p className="text-[15px] font-bold leading-none">
-                RailTrack
+                AreThereYet ?
               </p>
 
               <p className="mt-[4px] text-[8px] font-semibold uppercase tracking-[0.15em] text-[#8995a5]">
@@ -277,13 +236,12 @@ export default function TrainPage() {
           <div className="flex items-center gap-4 p-5">
 
             <div
-              className={`flex h-[42px] w-[42px] items-center justify-center rounded-full ${
-                train.status === "Delayed"
+              className={`flex h-[42px] w-[42px] items-center justify-center rounded-full ${train.status === "DELAYED"
                   ? "bg-[#fce8ea]"
                   : "bg-[#eff9eb]"
-              }`}
+                }`}
             >
-              {train.status === "Delayed" ? (
+              {train.status === "DELAYED" ? (
                 <AlertTriangle
                   size={20}
                   className="text-[#e31c2d]"
@@ -339,6 +297,9 @@ export default function TrainPage() {
 
               <div className="relative flex justify-between">
 
+                {stations.length === 0 && !loading && (
+                  <div className="text-center text-[#8995a5] text-sm w-full py-5">No schedule available.</div>
+                )}
                 {stations.map((station) => (
 
                   <div
@@ -347,13 +308,12 @@ export default function TrainPage() {
                   >
 
                     <div
-                      className={`flex h-[22px] w-[22px] items-center justify-center rounded-full ring-4 ${
-                        station.status === "completed"
+                      className={`flex h-[22px] w-[22px] items-center justify-center rounded-full ring-4 ${station.status === "completed"
                           ? "bg-[#5cc639] ring-[#e0f2da]"
                           : station.status === "current"
-                          ? "bg-[#4e8bb1] ring-[#dcecf4]"
-                          : "bg-white ring-[#dce3ea]"
-                      }`}
+                            ? "bg-[#4e8bb1] ring-[#dcecf4]"
+                            : "bg-white ring-[#dce3ea]"
+                        }`}
                     >
                       {station.status === "completed" && (
                         <CircleCheck
@@ -440,11 +400,10 @@ function InfoCard({
       </div>
 
       <p
-        className={`mt-2 text-[16px] font-bold ${
-          warning
+        className={`mt-2 text-[16px] font-bold ${warning
             ? "text-[#e31c2d]"
             : "text-[#264673]"
-        }`}
+          }`}
       >
         {value}
       </p>

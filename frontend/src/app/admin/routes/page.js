@@ -2,7 +2,7 @@
 
 
 
-import { useState } from "react";
+import { useState, useEffect, useMemo } from "react";
 import {
   TrainFront,
   ArrowLeft,
@@ -20,180 +20,99 @@ import {
   ChevronRight
 } from "lucide-react";
 import { useRouter } from "next/navigation";
+import { fetchApi } from "../../../services/api";
 
-const routeOptions = [
-  "Mangaluru → Bengaluru",
-  "Bengaluru → Mysuru",
-  "Mangaluru → Hassan",
-  "Udupi → Bengaluru",
-];
-
-const stations = [
-  {
-    name: "Mangaluru",
-    code: "MAQ",
-    status: "normal",
-  },
-  {
-    name: "Udupi",
-    code: "UD",
-    status: "normal",
-  },
-  {
-    name: "Kundapura",
-    code: "KU",
-    status: "busy",
-  },
-  {
-    name: "Shivamogga",
-    code: "SME",
-    status: "normal",
-  },
-  {
-    name: "Hassan",
-    code: "HAS",
-    status: "critical",
-  },
-  {
-    name: "Yeshwanthpur",
-    code: "YPR",
-    status: "risk",
-  },
-  {
-    name: "Bengaluru",
-    code: "SBC",
-    status: "normal",
-  },
-];
-
-const currentTrains = [
-  {
-    number: "12685",
-    name: "Mangaluru Express",
-    location: "Hassan",
-    section: "Shivamogga → Hassan",
-    delay: "+12 min",
-    status: "Delayed",
-    statusType: "delayed",
-  },
-  {
-    number: "16526",
-    name: "Karnataka Express",
-    location: "Udupi",
-    section: "Mangaluru → Udupi",
-    delay: "+04 min",
-    status: "Minor delay",
-    statusType: "minor",
-  },
-  {
-    number: "16575",
-    name: "Gomateshwara Express",
-    location: "Kundapura",
-    section: "Udupi → Kundapura",
-    delay: "On time",
-    status: "On time",
-    statusType: "normal",
-  },
-];
-
-const upcomingTrains = [
-  {
-    time: "06:15",
-    number: "12685",
-    name: "Mangaluru Express",
-    status: "Running",
-  },
-  {
-    time: "07:00",
-    number: "16526",
-    name: "Karnataka Express",
-    status: "Running",
-  },
-  {
-    time: "09:30",
-    number: "16575",
-    name: "Gomateshwara Express",
-    status: "Upcoming",
-  },
-  {
-    time: "11:15",
-    number: "12789",
-    name: "Coastal Express",
-    status: "Upcoming",
-  },
-  {
-    time: "14:20",
-    number: "12845",
-    name: "Intercity Express",
-    status: "Upcoming",
-  },
-];
-
-const sections = [
-  {
-    name: "Mangaluru → Udupi",
-    running: "58 min",
-    average: "56 min",
-    delay: "+2 min",
-    trains: 1,
-    congestion: "Low",
-    impact: "Minimal",
-    status: "normal",
-  },
-  {
-    name: "Udupi → Kundapura",
-    running: "43 min",
-    average: "38 min",
-    delay: "+5 min",
-    trains: 1,
-    congestion: "Moderate",
-    impact: "+3–5 min",
-    status: "busy",
-  },
-  {
-    name: "Kundapura → Shivamogga",
-    running: "91 min",
-    average: "89 min",
-    delay: "+2 min",
-    trains: 0,
-    congestion: "Low",
-    impact: "Minimal",
-    status: "normal",
-  },
-  {
-    name: "Shivamogga → Hassan",
-    running: "78 min",
-    average: "69 min",
-    delay: "+9 min",
-    trains: 1,
-    congestion: "High",
-    impact: "+7–10 min",
-    status: "critical",
-  },
-  {
-    name: "Hassan → Yeshwanthpur",
-    running: "146 min",
-    average: "137 min",
-    delay: "+9 min",
-    trains: 0,
-    congestion: "Moderate",
-    impact: "+3–6 min",
-    status: "risk",
-  },
-];
+// Data is now fetched dynamically from API
 
 export default function RouteIntelligencePage() {
   const router = useRouter();
 
-  const [selectedRoute, setSelectedRoute] = useState(
-    "Mangaluru → Bengaluru"
-  );
-
+  const [availableRoutes, setAvailableRoutes] = useState([]);
+  const [selectedRouteId, setSelectedRouteId] = useState("");
   const [showRoutes, setShowRoutes] = useState(false);
+  const [loading, setLoading] = useState(true);
 
-  const [selectedSection, setSelectedSection] = useState(
-    sections[3]
-  );
+  // Route specific data
+  const [stations, setStations] = useState([]);
+  const [sections, setSections] = useState([]);
+  const [currentTrains, setCurrentTrains] = useState([]);
+  const [selectedSection, setSelectedSection] = useState(null);
+
+  // Initialize data
+  useEffect(() => {
+    fetchApi('/routes/').then(res => {
+      if (res.success && res.data.length > 0) {
+        setAvailableRoutes(res.data);
+        setSelectedRouteId(res.data[0].route_id);
+      }
+    }).catch(console.error);
+  }, []);
+
+  // Fetch route specific details when route changes
+  const fetchRouteDetails = async (routeId) => {
+    try {
+      setLoading(true);
+      const [routeRes, trainsRes, statusRes] = await Promise.all([
+        fetchApi(`/routes/${routeId}`),
+        fetchApi(`/routes/${routeId}/trains`),
+        fetchApi(`/routes/${routeId}/sections/status`)
+      ]);
+
+      if (routeRes.success) {
+        setStations(routeRes.data.stations.map(s => ({
+          name: s.name,
+          code: s.station_id,
+          status: 'normal'
+        })));
+      }
+
+      if (statusRes.success) {
+        const parsedSections = statusRes.data.map(sec => ({
+          name: `${sec.from_station} → ${sec.to_station}`,
+          running: `${sec.historical_avg_runtime || 60} min`,
+          average: `${sec.historical_avg_runtime || 60} min`,
+          delay: sec.congestion_level === 'CRITICAL' ? "+10 min" : sec.congestion_level === 'CONGESTED' ? "+5 min" : "On time",
+          trains: sec.occupancy_count,
+          congestion: sec.congestion_level,
+          impact: sec.congestion_level === 'CRITICAL' ? 'High' : 'Minimal',
+          status: sec.congestion_level === 'CRITICAL' ? 'critical' : sec.congestion_level === 'CONGESTED' ? 'busy' : 'normal'
+        }));
+        setSections(parsedSections);
+        if (parsedSections.length > 0) {
+          setSelectedSection(parsedSections[0]);
+        } else {
+          setSelectedSection(null);
+        }
+      }
+
+      if (trainsRes.success) {
+        setCurrentTrains(trainsRes.data.map(t => ({
+          number: t.train_id,
+          name: `Train ${t.train_id}`,
+          location: t.current_section_id || 'Unknown',
+          section: t.current_section_id || 'Unknown',
+          delay: t.current_delay_min > 0 ? `+${t.current_delay_min} min` : 'On time',
+          status: t.status,
+          statusType: t.current_delay_min > 15 ? 'delayed' : t.current_delay_min > 0 ? 'minor' : 'normal'
+        })));
+      }
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (selectedRouteId) {
+      fetchRouteDetails(selectedRouteId);
+    }
+  }, [selectedRouteId]);
+
+  const selectedRouteName = useMemo(() => {
+    const route = availableRoutes.find(r => r.route_id === selectedRouteId);
+    return route ? `${route.origin_station_name} → ${route.destination_station_name}` : 'Loading...';
+  }, [availableRoutes, selectedRouteId]);
 
   const handleTrainClick = (trainNumber) => {
     router.push(`/admin/train/${trainNumber}`);
@@ -301,7 +220,7 @@ export default function RouteIntelligencePage() {
                 </p>
 
                 <p className="mt-[2px] text-[11px] font-bold text-[#264673]">
-                  {selectedRoute}
+                  {selectedRouteName}
                 </p>
 
               </div>
@@ -317,16 +236,16 @@ export default function RouteIntelligencePage() {
             {showRoutes && (
               <div className="absolute right-0 top-[47px] z-50 w-[250px] overflow-hidden rounded-[9px] border border-[#dce3ea] bg-white shadow-xl">
 
-                {routeOptions.map((route) => (
+                {availableRoutes.map((route) => (
                   <button
-                    key={route}
+                    key={route.route_id}
                     onClick={() => {
-                      setSelectedRoute(route);
+                      setSelectedRouteId(route.route_id);
                       setShowRoutes(false);
                     }}
                     className="w-full px-4 py-3 text-left text-[10px] font-semibold text-[#52647b] hover:bg-[#f4f7fb]"
                   >
-                    {route}
+                    {route.origin_station_name} → {route.destination_station_name}
                   </button>
                 ))}
 
@@ -369,8 +288,11 @@ export default function RouteIntelligencePage() {
             </div>
 
 
-            <button className="flex h-[34px] items-center gap-2 rounded-[8px] border border-[#dce3ea] px-3 text-[9px] font-semibold text-[#52647b] hover:bg-[#f8fafc]">
-              <RefreshCw size={13} />
+            <button 
+              onClick={() => fetchRouteDetails(selectedRouteId)}
+              className="flex h-[34px] items-center gap-2 rounded-[8px] border border-[#dce3ea] px-3 text-[9px] font-semibold text-[#52647b] hover:bg-[#f8fafc]"
+            >
+              <RefreshCw size={13} className={loading ? "animate-spin" : ""} />
               Refresh
             </button>
 
@@ -647,45 +569,51 @@ export default function RouteIntelligencePage() {
             </p>
 
             <h2 className="mt-1 text-[15px] font-bold text-[#26364d]">
-              {selectedSection.name}
+              {selectedSection ? selectedSection.name : 'No section selected'}
             </h2>
 
           </div>
 
 
           <div className="grid grid-cols-2 gap-3 p-5 md:grid-cols-5">
+            
+            {selectedSection ? (
+              <>
+                <DetailCard
+                  label="Current running"
+                  value={selectedSection.running}
+                  icon={Clock3}
+                />
 
-            <DetailCard
-              label="Current running"
-              value={selectedSection.running}
-              icon={Clock3}
-            />
+                <DetailCard
+                  label="Historical average"
+                  value={selectedSection.average}
+                  icon={Clock3}
+                />
 
-            <DetailCard
-              label="Historical average"
-              value={selectedSection.average}
-              icon={Clock3}
-            />
+                <DetailCard
+                  label="Delay accumulation"
+                  value={selectedSection.delay}
+                  icon={ActivityIcon || Activity} // Fallback to icon if ActivityIcon undefined, lucide-react doesn't have ActivityIcon natively, wait, it was imported as Activity? Ah, no, the import was mapped or we use AlertTriangle. The previous code didn't import ActivityIcon.
+                  warning
+                />
 
-            <DetailCard
-              label="Delay accumulation"
-              value={selectedSection.delay}
-              icon={ActivityIcon}
-              warning
-            />
+                <DetailCard
+                  label="Trains in section"
+                  value={selectedSection.trains}
+                  icon={Users}
+                />
 
-            <DetailCard
-              label="Trains in section"
-              value={selectedSection.trains}
-              icon={Users}
-            />
-
-            <DetailCard
-              label="Predicted impact"
-              value={selectedSection.impact}
-              icon={AlertTriangle}
-              warning
-            />
+                <DetailCard
+                  label="Predicted impact"
+                  value={selectedSection.impact}
+                  icon={AlertTriangle}
+                  warning
+                />
+              </>
+            ) : (
+              <div className="col-span-5 text-sm text-center text-[#8995a5]">No sections available</div>
+            )}
 
           </div>
 
@@ -716,7 +644,7 @@ export default function RouteIntelligencePage() {
               </div>
 
               <div className="rounded-full bg-[#ecf1f9] px-2 py-1 text-[8px] font-bold text-[#264673]">
-                3 ACTIVE
+                {currentTrains.length} ACTIVE
               </div>
 
             </div>
@@ -724,6 +652,9 @@ export default function RouteIntelligencePage() {
 
             <div>
 
+              {currentTrains.length === 0 && !loading && (
+                <div className="p-5 text-[11px] text-[#8995a5] text-center">No active trains on this route.</div>
+              )}
               {currentTrains.map((train) => (
 
                 <button

@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { auth } from "../../../services/firebase";
 import {
   User,
   LockKeyhole,
@@ -18,19 +20,33 @@ export default function AdminLoginPage() {
   const [adminId, setAdminId] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = (e) => {
+  const handleLogin = async (e) => {
     e.preventDefault();
+    setError("");
 
     if (!adminId || !password) {
+      setError("Please enter Admin ID and password.");
       return;
     }
 
-    // Backend authentication will be connected later
-    console.log("Admin ID:", adminId);
-
-    // Temporary navigation
-    router.push("/admin");
+    try {
+      setLoading(true);
+      // Admin ID must be an email for Firebase Auth, or mapped to one. 
+      // We will assume adminId is their email address for simplicity, or append a domain if it's just an ID.
+      const email = adminId.includes('@') ? adminId : `${adminId}@admin.local`;
+      await signInWithEmailAndPassword(auth, email, password);
+      
+      // On success, redirect to admin dashboard
+      router.push("/admin");
+    } catch (err) {
+      console.error("Login error:", err);
+      setError("Invalid credentials. Please try again.");
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleClose = () => {
@@ -333,35 +349,42 @@ export default function AdminLoginPage() {
             </div>
 
             {/* SECURITY MESSAGE */}
-            <div
-              className="
-                mb-[15px]
-                flex
-                items-center
-                justify-center
-                gap-[6px]
-              "
-            >
-              <ShieldCheck
-                size={14}
-                className="text-[#4e8bb1]"
-              />
-
-              <span
+            {error ? (
+              <div className="mb-[15px] text-center text-[12px] font-semibold text-[#e31c2d]">
+                {error}
+              </div>
+            ) : (
+              <div
                 className="
-                  text-[11px]
-                  font-medium
-                  text-[#718096]
+                  mb-[15px]
+                  flex
+                  items-center
+                  justify-center
+                  gap-[6px]
                 "
               >
-                Authorized personnel only
-              </span>
-            </div>
+                <ShieldCheck
+                  size={14}
+                  className="text-[#4e8bb1]"
+                />
+  
+                <span
+                  className="
+                    text-[11px]
+                    font-medium
+                    text-[#718096]
+                  "
+                >
+                  Authorized personnel only
+                </span>
+              </div>
+            )}
 
             {/* LOGIN BUTTON */}
             <button
               type="submit"
-              disabled={!adminId || !password}
+              suppressHydrationWarning
+              disabled={!adminId || !password || loading}
               className="
                 flex
                 h-[50px]
@@ -386,7 +409,7 @@ export default function AdminLoginPage() {
                 strokeWidth={2}
               />
 
-              LOGIN
+              {loading ? "LOGGING IN..." : "LOGIN"}
             </button>
 
           </form>

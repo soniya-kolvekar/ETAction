@@ -8,69 +8,78 @@ import {
   Clock3,
   MapPin,
   X,
+  Loader2
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-
-const trains = [
-  {
-    number: "12685",
-    name: "Mangaluru Central Express",
-    from: "Mangaluru Central",
-    to: "KSR Bengaluru",
-    departure: "06:15",
-    arrival: "18:45",
-  },
-  {
-    number: "16526",
-    name: "KSR Bengaluru Express",
-    from: "KSR Bengaluru",
-    to: "Mangaluru Central",
-    departure: "07:00",
-    arrival: "19:30",
-  },
-  {
-    number: "12627",
-    name: "Karnataka Express",
-    from: "Bengaluru",
-    to: "New Delhi",
-    departure: "19:20",
-    arrival: "10:30",
-  },
-];
+import { fetchApi } from "../../services/api";
 
 export default function TrainSearchPage() {
-    const router = useRouter();
+  const router = useRouter();
   const [trainNumber, setTrainNumber] = useState("");
   const [recentSearches, setRecentSearches] = useState([]);
+  const [selectedTrain, setSelectedTrain] = useState(null);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState("");
 
-  const selectedTrain = trains.find(
-    (train) => train.number === trainNumber
-  );
-
-  const handleSearch = (e) => {
+  const handleSearch = async (e) => {
     e.preventDefault();
-
     if (!trainNumber.trim()) return;
 
-    const exists = trains.some(
-      (train) => train.number === trainNumber.trim()
-    );
+    setError("");
+    setLoading(true);
+    setSelectedTrain(null);
 
-    if (!exists) {
-      alert("Train not found. Try 12685, 16526 or 12627.");
-      return;
+    try {
+      // Fetch train details
+      const trainRes = await fetchApi(`/trains/${trainNumber.trim()}`);
+
+      if (!trainRes.success || !trainRes.data) {
+        setError("Train not found. Try 12685, 16526 or 12627.");
+        return;
+      }
+
+      // Fetch schedule for departure/arrival info
+      const scheduleRes = await fetchApi(`/trains/${trainNumber.trim()}/schedule`);
+
+      let departure = "--:--";
+      let arrival = "--:--";
+
+      if (scheduleRes.success && scheduleRes.data && scheduleRes.data.length > 0) {
+        const sorted = scheduleRes.data.sort((a, b) => new Date(a.scheduled_arrival_time) - new Date(b.scheduled_arrival_time));
+        const first = sorted[0];
+        const last = sorted[sorted.length - 1];
+
+        if (first.scheduled_departure_time) {
+          const dTime = new Date(first.scheduled_departure_time);
+          if (!isNaN(dTime)) departure = dTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+        if (last.scheduled_arrival_time) {
+          const aTime = new Date(last.scheduled_arrival_time);
+          if (!isNaN(aTime)) arrival = aTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+        }
+      }
+
+      setSelectedTrain({
+        number: trainRes.data.train_number || trainRes.data.train_id,
+        name: trainRes.data.train_name,
+        from: trainRes.data.origin_station_id,
+        to: trainRes.data.destination_station_id,
+        departure,
+        arrival
+      });
+
+      if (!recentSearches.includes(trainNumber.trim())) {
+        setRecentSearches((prev) => [
+          trainNumber.trim(),
+          ...prev.slice(0, 2),
+        ]);
+      }
+    } catch (err) {
+      console.error(err);
+      setError("Train not found. Try 12685, 16526 or 12627.");
+    } finally {
+      setLoading(false);
     }
-
-    if (!recentSearches.includes(trainNumber)) {
-      setRecentSearches((prev) => [
-        trainNumber,
-        ...prev.slice(0, 2),
-      ]);
-    }
-
-    // Later:
-    // router.push(`/train/${trainNumber}`);
-    console.log("Selected train:", trainNumber);
   };
 
   const clearSearch = () => {
@@ -102,7 +111,7 @@ export default function TrainSearchPage() {
 
             <div>
               <p className="text-[16px] font-bold leading-none text-[#264673]">
-                RailTrack
+                AreWeThereYet ?
               </p>
 
               <p className="mt-[4px] text-[10px] font-medium tracking-[0.12em] text-[#7c8796]">
@@ -218,6 +227,7 @@ export default function TrainSearchPage() {
               {/* Search button */}
               <button
                 type="submit"
+                disabled={loading}
                 className="
                   flex
                   h-[54px]
@@ -234,17 +244,29 @@ export default function TrainSearchPage() {
                   transition
                   duration-200
                   hover:bg-[#192f4d]
+                  disabled:opacity-70
                 "
               >
-                SEARCH
-
-                <ArrowRight
-                  size={18}
-                  strokeWidth={2}
-                />
+                {loading ? (
+                  <Loader2 size={18} className="animate-spin" />
+                ) : (
+                  <>
+                    SEARCH
+                    <ArrowRight
+                      size={18}
+                      strokeWidth={2}
+                    />
+                  </>
+                )}
               </button>
             </div>
           </form>
+
+          {error && (
+            <p className="mt-3 text-center text-[13px] font-semibold text-[#e31c2d]">
+              {error}
+            </p>
+          )}
 
           {/* Hint */}
           <p className="mt-3 text-center text-[12px] text-[#8995a5]">
@@ -324,9 +346,9 @@ export default function TrainSearchPage() {
             {/* View route */}
             <button
               type="button"
-             onClick={() =>
-  router.push(`/train/${selectedTrain.number}`)
-}
+              onClick={() =>
+                router.push(`/train/${selectedTrain.number}`)
+              }
               className="
                 flex
                 h-[48px]
@@ -374,10 +396,6 @@ export default function TrainSearchPage() {
 
             <div className="grid gap-3 sm:grid-cols-3">
               {recentSearches.map((number) => {
-                const train = trains.find(
-                  (item) => item.number === number
-                );
-
                 return (
                   <button
                     key={number}
@@ -410,7 +428,7 @@ export default function TrainSearchPage() {
                     </div>
 
                     <p className="mt-2 truncate text-[11px] text-[#7b8797]">
-                      {train?.name}
+                      Search history
                     </p>
                   </button>
                 );

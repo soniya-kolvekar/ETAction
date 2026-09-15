@@ -348,6 +348,7 @@ export default function LoginPage() {
             ================================================== */}
             <button
               type="submit"
+              suppressHydrationWarning
               disabled={!username || !password}
               className="
                 flex

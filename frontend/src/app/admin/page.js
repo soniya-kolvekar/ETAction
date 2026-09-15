@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import {
   TrainFront,
   Route,
@@ -18,102 +18,56 @@ import {
   Gauge,
 } from "lucide-react";
 import { useRouter } from "next/navigation";
-
-const trains = [
-  {
-    number: "12685",
-    name: "Mangaluru Express",
-    location: "Hassan",
-    delay: "+12 min",
-    status: "Delayed",
-    color: "orange",
-  },
-  {
-    number: "16526",
-    name: "Karnataka Express",
-    location: "Udupi",
-    delay: "+04 min",
-    status: "Minor delay",
-    color: "yellow",
-  },
-  {
-    number: "16575",
-    name: "Gomateshwara Express",
-    location: "Kundapura",
-    delay: "On time",
-    status: "On time",
-    color: "green",
-  },
-];
-
-const delayReasons = [
-  {
-    name: "Congestion",
-    count: 9,
-    icon: Activity,
-  },
-  {
-    name: "Weather",
-    count: 6,
-    icon: CloudRain,
-  },
-  {
-    name: "Maintenance",
-    count: 4,
-    icon: Wrench,
-  },
-  {
-    name: "Unscheduled stoppage",
-    count: 3,
-    icon: CircleStop,
-  },
-  {
-    name: "Operational",
-    count: 5,
-    icon: Gauge,
-  },
-];
-
-const alerts = [
-  {
-    type: "critical",
-    train: "12685",
-    title: "Critical delay",
-    detail: "Delay increased to +24 min",
-  },
-  {
-    type: "warning",
-    train: "16526",
-    title: "Congestion ahead",
-    detail: "Additional +4–7 min predicted",
-  },
-  {
-    type: "info",
-    train: "Block B18",
-    title: "Maintenance block",
-    detail: "Scheduled 14:30 – 15:15",
-  },
-];
+import { fetchApi } from "../../services/api";
 
 export default function AdminDashboard() {
   const router = useRouter();
-
-  const [selectedRoute, setSelectedRoute] =
-    useState("Mangaluru → Bengaluru");
-
+  const [summary, setSummary] = useState(null);
+  const [trains, setTrains] = useState([]);
+  const [loading, setLoading] = useState(true);
   const [showRoutes, setShowRoutes] = useState(false);
+  const [selectedRoute, setSelectedRoute] = useState("All Routes");
 
-  const routeOptions = [
-    "Mangaluru → Bengaluru",
-    "Bengaluru → Mysuru",
-    "Mangaluru → Hassan",
-    "Udupi → Bengaluru",
-  ];
+  const fetchDashboardData = async () => {
+    try {
+      setLoading(true);
+      const [summaryRes, trainsRes] = await Promise.all([
+        fetchApi('/dashboard/summary'),
+        fetchApi('/dashboard/trains')
+      ]);
+      if (summaryRes.success) setSummary(summaryRes.data);
+      if (trainsRes.success) setTrains(trainsRes.data);
+    } catch (error) {
+      console.error("Failed to fetch dashboard data:", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchDashboardData();
+  }, []);
 
   // Open individual train page
   const openTrain = (trainNumber) => {
     router.push(`/admin/train/${trainNumber}`);
   };
+
+  const getDelayIcon = (reason) => {
+    if (reason.includes("Weather")) return CloudRain;
+    if (reason.includes("Maintenance")) return Wrench;
+    if (reason.includes("Stop")) return CircleStop;
+    if (reason.includes("Operation")) return Gauge;
+    return Activity;
+  };
+
+  const formattedDelayReasons = summary?.delay_reasons
+    ? Object.entries(summary.delay_reasons).map(([name, count]) => ({
+      name,
+      count,
+      icon: getDelayIcon(name),
+    }))
+    : [];
 
   return (
     <main className="min-h-screen bg-[#f5f7fa] text-[#192f4d]">
@@ -136,7 +90,7 @@ export default function AdminDashboard() {
 
             <div>
               <p className="text-[15px] font-bold leading-none text-[#192f4d]">
-                RailTrack
+                AreWeThereYet ?
               </p>
 
               <p className="mt-[4px] text-[8px] font-semibold uppercase tracking-[0.15em] text-[#8995a5]">
@@ -219,10 +173,10 @@ export default function AdminDashboard() {
 
           <button
             type="button"
-            onClick={() => window.location.reload()}
+            onClick={fetchDashboardData}
             className="flex h-[37px] items-center justify-center gap-2 rounded-[9px] border border-[#dce3ea] bg-white px-3 text-[10px] font-semibold text-[#52647b] shadow-sm hover:bg-[#f8fafc]"
           >
-            <RefreshCw size={14} />
+            <RefreshCw size={14} className={loading ? "animate-spin" : ""} />
             Refresh data
           </button>
 
@@ -237,21 +191,21 @@ export default function AdminDashboard() {
 
           <StatCard
             label="Total trains"
-            value="128"
+            value={summary?.total_trains || 0}
             description="Running today"
             icon={TrainFront}
           />
 
           <StatCard
             label="On time"
-            value="94"
-            description="73.4% of trains"
+            value={summary?.on_time_count || 0}
+            description="Operational"
             icon={Clock3}
           />
 
           <StatCard
             label="Delayed"
-            value="27"
+            value={(summary?.minor_delay_count || 0) + (summary?.significant_delay_count || 0)}
             description="Requires monitoring"
             icon={Activity}
             highlight
@@ -259,7 +213,7 @@ export default function AdminDashboard() {
 
           <StatCard
             label="Critical"
-            value="07"
+            value={summary?.critical_delay_count || 0}
             description="Immediate attention"
             icon={AlertTriangle}
             critical
@@ -505,11 +459,14 @@ export default function AdminDashboard() {
             {/* Train rows */}
             <div>
 
+              {trains.length === 0 && !loading && (
+                <div className="p-5 text-center text-sm text-[#8995a5]">No trains currently running.</div>
+              )}
               {trains.map((train) => (
                 <button
                   type="button"
-                  key={train.number}
-                  onClick={() => openTrain(train.number)}
+                  key={train.train_id}
+                  onClick={() => openTrain(train.train_number)}
                   className="group flex w-full cursor-pointer items-center gap-3 border-b border-[#f0f2f5] px-5 py-4 text-left last:border-0 hover:bg-[#fafbfd] focus:outline-none focus:ring-2 focus:ring-inset focus:ring-[#4e8bb1]"
                 >
 
@@ -528,11 +485,11 @@ export default function AdminDashboard() {
                     <div className="flex items-center gap-2">
 
                       <p className="text-[11px] font-bold text-[#26364d]">
-                        {train.number}
+                        {train.train_number}
                       </p>
 
                       <span className="truncate text-[9px] text-[#8995a5]">
-                        {train.name}
+                        {train.train_name}
                       </span>
 
                     </div>
@@ -545,7 +502,7 @@ export default function AdminDashboard() {
                       />
 
                       <span className="text-[9px] text-[#8995a5]">
-                        {train.location}
+                        Section: {train.current_section_id || 'Unknown'}
                       </span>
 
                     </div>
@@ -557,17 +514,16 @@ export default function AdminDashboard() {
                   <div className="hidden text-right sm:block">
 
                     <p className="text-[10px] font-bold text-[#52647b]">
-                      {train.delay}
+                      {train.current_delay_min > 0 ? `+${train.current_delay_min} min` : 'On time'}
                     </p>
 
                     <p
-                      className={`mt-1 text-[8px] font-semibold ${
-                        train.color === "green"
-                          ? "text-[#4a9e2e]"
-                          : train.color === "yellow"
+                      className={`mt-1 text-[8px] font-semibold ${train.current_delay_min === 0
+                        ? "text-[#4a9e2e]"
+                        : train.current_delay_min <= 15
                           ? "text-[#b28700]"
                           : "text-[#e88a22]"
-                      }`}
+                        }`}
                     >
                       {train.status}
                     </p>
@@ -613,12 +569,10 @@ export default function AdminDashboard() {
 
             <div>
 
-              {alerts.map((alert, index) => (
-                <AlertRow
-                  key={index}
-                  alert={alert}
-                />
-              ))}
+              {/* alerts.map(...) was removed because alerts are not in summary endpoint currently, we will mock them for now */}
+              <div className="p-5 text-[11px] text-[#8995a5] text-center">
+                No active critical alerts.
+              </div>
 
             </div>
 
@@ -648,7 +602,10 @@ export default function AdminDashboard() {
 
           <div className="grid gap-4 px-5 py-5 md:grid-cols-5">
 
-            {delayReasons.map((reason) => (
+            {formattedDelayReasons.length === 0 && (
+              <div className="col-span-5 text-center text-sm text-[#8995a5]">No delays recorded today.</div>
+            )}
+            {formattedDelayReasons.map((reason) => (
               <DelayReason
                 key={reason.name}
                 reason={reason}
@@ -704,13 +661,12 @@ function StatCard({
           </p>
 
           <p
-            className={`mt-2 text-[27px] font-bold leading-none ${
-              critical
-                ? "text-[#b61624]"
-                : highlight
+            className={`mt-2 text-[27px] font-bold leading-none ${critical
+              ? "text-[#b61624]"
+              : highlight
                 ? "text-[#e88a22]"
                 : "text-[#264673]"
-            }`}
+              }`}
           >
             {value}
           </p>
@@ -718,13 +674,12 @@ function StatCard({
         </div>
 
         <div
-          className={`flex h-[32px] w-[32px] items-center justify-center rounded-[9px] ${
-            critical
-              ? "bg-[#fce8ea]"
-              : highlight
+          className={`flex h-[32px] w-[32px] items-center justify-center rounded-[9px] ${critical
+            ? "bg-[#fce8ea]"
+            : highlight
               ? "bg-[#fff5e8]"
               : "bg-[#ecf1f9]"
-          }`}
+            }`}
         >
 
           <Icon
@@ -733,8 +688,8 @@ function StatCard({
               critical
                 ? "text-[#b61624]"
                 : highlight
-                ? "text-[#e88a22]"
-                : "text-[#264673]"
+                  ? "text-[#e88a22]"
+                  : "text-[#264673]"
             }
           />
 
@@ -800,11 +755,10 @@ function TrainMarker({
     >
 
       <div
-        className={`flex h-[29px] w-[29px] items-center justify-center rounded-full border-2 border-white shadow-md ${
-          delayed
-            ? "bg-[#e88a22]"
-            : "bg-[#264673]"
-        }`}
+        className={`flex h-[29px] w-[29px] items-center justify-center rounded-full border-2 border-white shadow-md ${delayed
+          ? "bg-[#e88a22]"
+          : "bg-[#264673]"
+          }`}
       >
         <TrainFront
           size={14}
@@ -819,11 +773,10 @@ function TrainMarker({
         </p>
 
         <p
-          className={`text-[7px] font-semibold ${
-            delayed
-              ? "text-[#e88a22]"
-              : "text-[#5a728b]"
-          }`}
+          className={`text-[7px] font-semibold ${delayed
+            ? "text-[#e88a22]"
+            : "text-[#5a728b]"
+            }`}
         >
           {delay}
         </p>

@@ -13,77 +13,105 @@ import {
   Navigation,
   CircleCheck,
 } from "lucide-react";
+import { useParams } from "next/navigation";
+import { fetchApi } from "../../../services/api";
 
-const route = [
-  {
-    station: "Mangaluru Central",
-    code: "MAQ",
-    scheduled: "06:15",
-    actual: "06:18",
-    status: "departed",
-    delay: 3,
-  },
-  {
-    station: "Udupi",
-    code: "UD",
-    scheduled: "07:42",
-    actual: "07:45",
-    status: "departed",
-    delay: 3,
-  },
-  {
-    station: "Kundapura",
-    code: "KUDA",
-    scheduled: "08:18",
-    actual: "08:22",
-    status: "departed",
-    delay: 4,
-  },
-  {
-    station: "Shivamogga",
-    code: "SME",
-    scheduled: "10:55",
-    actual: "11:02",
-    status: "departed",
-    delay: 7,
-  },
-  {
-    station: "Hassan",
-    code: "HAS",
-    scheduled: "12:05",
-    actual: "12:17",
-    status: "current",
-    delay: 12,
-  },
-  {
-    station: "Yeshwanthpur",
-    code: "YPR",
-    scheduled: "14:10",
-    predicted: "14:22",
-    status: "upcoming",
-    delay: 12,
-  },
-  {
-    station: "KSR Bengaluru",
-    code: "SBC",
-    scheduled: "14:55",
-    predicted: "15:11",
-    status: "upcoming",
-    delay: 16,
-  },
-];
+// Data will be fetched from API
 
 export default function TrainStatusPage() {
+  const params = useParams();
+  const trainNumber = params.trainNumber;
+
   const [showReason, setShowReason] = useState(false);
   const [showPrediction, setShowPrediction] = useState(true);
 
-  const currentStation = route.find(
-    (item) => item.status === "current"
-  );
+  const [route, setRoute] = useState([]);
+  const [trainData, setTrainData] = useState({
+    name: "Loading...",
+    status: "Loading",
+    delay: 0,
+    currentLocation: "--"
+  });
+  const [loading, setLoading] = useState(true);
 
-  const nextStation = route.find(
-    (item) => item.status === "upcoming"
-  );
+  import("react").then(({ useEffect }) => {
+    useEffect(() => {
+      if (!trainNumber) return;
+      const loadData = async () => {
+        try {
+          setLoading(true);
+          const [trainRes, statusRes, scheduleRes] = await Promise.all([
+            fetchApi(`/trains/${trainNumber}`),
+            fetchApi(`/trains/${trainNumber}/status`),
+            fetchApi(`/trains/${trainNumber}/schedule`)
+          ]);
+
+          let newTrain = { name: "Unknown", status: "UNKNOWN", delay: 0, currentLocation: "--" };
+
+          if (trainRes.success && trainRes.data) {
+            newTrain.name = trainRes.data.train_name || trainRes.data.train_number;
+          }
+          if (statusRes.success && statusRes.data) {
+            newTrain.status = statusRes.data.status;
+            newTrain.delay = statusRes.data.current_delay_min || 0;
+            newTrain.currentLocation = statusRes.data.current_section_id || "--";
+          }
+          setTrainData(newTrain);
+
+          if (scheduleRes.success && scheduleRes.data) {
+            const uniqueStations = new Map();
+            scheduleRes.data.forEach(s => {
+              if (!uniqueStations.has(s.station_id)) uniqueStations.set(s.station_id, s);
+            });
+            const deduplicated = Array.from(uniqueStations.values());
+            const sorted = deduplicated.sort((a, b) => new Date(a.scheduled_arrival_time) - new Date(b.scheduled_arrival_time));
+
+            let passedCurrent = false;
+            const mappedRoute = sorted.map((s, idx) => {
+              const schedTime = new Date(s.scheduled_arrival_time);
+              const schedStr = isNaN(schedTime) ? '--:--' : schedTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+
+              let status = 'upcoming';
+              let actualStr = undefined;
+              let predictedStr = undefined;
+
+              if (s.actual_arrival_time) {
+                status = 'departed'; // arrived actually, but mapped as departed for UI simplicity
+                const actTime = new Date(s.actual_arrival_time);
+                if (!isNaN(actTime)) actualStr = actTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+              } else if (!passedCurrent && newTrain.status !== 'NOT_REPORTING') {
+                status = 'current';
+                passedCurrent = true;
+              } else {
+                // predicted logic
+                const pTime = new Date(schedTime.getTime() + newTrain.delay * 60000);
+                if (!isNaN(pTime)) predictedStr = pTime.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+              }
+
+              return {
+                station: s.station_id,
+                code: s.station_id,
+                scheduled: schedStr,
+                actual: actualStr,
+                predicted: predictedStr,
+                status: status,
+                delay: newTrain.delay,
+              };
+            });
+            setRoute(mappedRoute);
+          }
+        } catch (err) {
+          console.error(err);
+        } finally {
+          setLoading(false);
+        }
+      };
+      loadData();
+    }, [trainNumber]);
+  });
+
+  const currentStation = route.find((item) => item.status === "current") || { station: "--", delay: 0 };
+  const nextStation = route.find((item) => item.status === "upcoming") || { station: "--", code: "--", predicted: "--", delay: 0 };
 
   return (
     <main className="min-h-screen bg-[#f5f7fa] text-[#192f4d]">
@@ -121,7 +149,7 @@ export default function TrainStatusPage() {
             />
 
             <span className="text-[15px] font-bold text-[#264673]">
-              RailTrack
+              AreWeThereYet ?
             </span>
           </div>
 
@@ -164,16 +192,16 @@ export default function TrainStatusPage() {
               <div>
                 <div className="flex items-center gap-2">
                   <h1 className="text-[21px] font-bold text-[#192f4d]">
-                    12685
+                    {trainNumber}
                   </h1>
 
-                  <span className="rounded-full bg-[#eff9eb] px-2.5 py-1 text-[10px] font-bold text-[#377722]">
-                    RUNNING
+                  <span className={`rounded-full px-2.5 py-1 text-[10px] font-bold ${trainData.status === 'DELAYED' ? 'bg-[#fce8ea] text-[#e31c2d]' : 'bg-[#eff9eb] text-[#377722]'}`}>
+                    {trainData.status}
                   </span>
                 </div>
 
                 <p className="mt-1 text-[13px] text-[#718096]">
-                  Mangaluru Central Express
+                  {trainData.name}
                 </p>
               </div>
             </div>
@@ -191,13 +219,19 @@ export default function TrainStatusPage() {
                 />
 
                 <span className="text-[15px] font-bold text-[#264673]">
-                  {currentStation.station}
+                  {trainData.currentLocation}
                 </span>
               </div>
 
-              <p className="mt-1 text-[12px] font-semibold text-[#e31c2d]">
-                {currentStation.delay} min late
-              </p>
+              {trainData.delay > 0 ? (
+                <p className="mt-1 text-[12px] font-semibold text-[#e31c2d]">
+                  {trainData.delay} min late
+                </p>
+              ) : (
+                <p className="mt-1 text-[12px] font-semibold text-[#4a9e2e]">
+                  On time
+                </p>
+              )}
             </div>
 
           </div>
@@ -279,7 +313,7 @@ export default function TrainStatusPage() {
                 </p>
 
                 <p className="mt-1 text-[28px] font-bold text-[#e31c2d]">
-                  +12 min
+                  {trainData.delay > 0 ? `+${trainData.delay} min` : '0 min'}
                 </p>
               </div>
 
@@ -289,7 +323,7 @@ export default function TrainStatusPage() {
                 </p>
 
                 <p className="mt-1 text-[22px] font-bold text-[#264673]">
-                  5 / 7
+                  {route.filter(r => r.status === 'departed').length} / {route.length}
                 </p>
               </div>
 
@@ -298,7 +332,7 @@ export default function TrainStatusPage() {
             <div className="mt-5 h-[7px] overflow-hidden rounded-full bg-[#edf0f4]">
               <div
                 className="h-full rounded-full bg-[#264673]"
-                style={{ width: "71%" }}
+                style={{ width: `${route.length > 0 ? (route.filter(r => r.status === 'departed').length / route.length) * 100 : 0}%` }}
               />
             </div>
 
@@ -423,10 +457,9 @@ export default function TrainStatusPage() {
                             className={`
                               text-[14px]
                               font-bold
-                              ${
-                                isCurrent
-                                  ? "text-[#264673]"
-                                  : "text-[#33445a]"
+                              ${isCurrent
+                                ? "text-[#264673]"
+                                : "text-[#33445a]"
                               }
                             `}
                           >
@@ -528,7 +561,7 @@ export default function TrainStatusPage() {
                 </h2>
 
                 <p className="mt-1 text-[11px] text-[#8995a5]">
-                  Current delay: 12 minutes
+                  Current delay: {trainData.delay} minutes
                 </p>
               </div>
 
@@ -591,7 +624,7 @@ export default function TrainStatusPage() {
                   </p>
 
                   <p className="mt-1 text-[15px] font-bold text-[#33445a]">
-                    Hassan
+                    {trainData.currentLocation}
                   </p>
                 </div>
 
