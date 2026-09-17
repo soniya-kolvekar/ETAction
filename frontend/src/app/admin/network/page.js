@@ -33,7 +33,9 @@ import {
   TrendingUp,
   CloudRain,
   Wrench,
-  CircleStop
+  CircleStop,
+  Zap,
+  GitBranch
 } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { fetchApi } from "../../../services/api";
@@ -48,10 +50,10 @@ function StationNode({ data, selected }) {
 
   return (
     <div
-      className={`min-w-[145px] rounded-xl border bg-white p-2.5 shadow-xs transition-all duration-200 ${
+      className={`min-w-[145px] rounded-xl border-2 bg-white p-2.5 shadow-sm transition-all duration-200 ${
         selected
-          ? "border-[#2563eb] ring-2 ring-[#2563eb]/20 shadow-md"
-          : "border-[#e2e8f0] hover:border-[#cbd5e1] hover:shadow-xs"
+          ? "border-[#0284c7] ring-4 ring-[#0284c7]/20 shadow-md"
+          : "border-[#1e293b]/70 hover:border-[#1e293b] hover:shadow-xs"
       }`}
     >
       {/* Handles on 4 cardinal directions */}
@@ -65,19 +67,19 @@ function StationNode({ data, selected }) {
       <Handle type="source" position={Position.Bottom} id="bottom-out" className="!opacity-0 !w-2 !h-2" />
 
       {/* Code Badge & Type Pill */}
-      <div className="flex items-center justify-between gap-2 border-b border-[#f1f5f9] pb-1.5 mb-1.5">
-        <span className="font-mono text-[11px] font-bold text-[#0f172a] bg-[#f8fafc] px-1.5 py-0.5 rounded border border-[#e2e8f0]">
+      <div className="flex items-center justify-between gap-2 border-b-2 border-[#1e293b]/10 pb-1.5 mb-1.5">
+        <span className="font-mono text-[11px] font-black text-[#0f172a] bg-[#fef9c3] px-1.5 py-0.5 rounded border border-[#1e293b]">
           {data.code}
         </span>
         <span
-          className={`text-[8px] font-bold uppercase tracking-wider px-1.5 py-0.5 rounded-full ${
+          className={`text-[8px] font-black uppercase tracking-wider px-2 py-0.5 rounded-full shadow-2xs ${
             isTerminal
-              ? "bg-[#fef2f2] text-[#ef4444] border border-[#fecaca]"
+              ? "bg-[#ff4d4d] text-white border border-[#b91c1c]"
               : isJunction
-              ? "bg-[#eff6ff] text-[#2563eb] border border-[#bfdbfe]"
+              ? "bg-[#0284c7] text-white border border-[#0369a1]"
               : isSiding
-              ? "bg-[#f5f3ff] text-[#7c3aed] border border-[#ddd6fe]"
-              : "bg-[#f8fafc] text-[#64748b] border border-[#e2e8f0]"
+              ? "bg-[#ff8a00] text-white border border-[#c2410c]"
+              : "bg-[#ede8da] text-[#1e293b] border border-[#1e293b]/30"
           }`}
         >
           {data.type}
@@ -86,11 +88,11 @@ function StationNode({ data, selected }) {
 
       {/* Name and Capacity */}
       <div>
-        <p className="text-[11px] font-bold text-[#0f172a] truncate leading-tight">
+        <p className="text-[12px] font-black text-[#0f172a] truncate leading-tight">
           {data.name}
         </p>
-        <p className="text-[9px] text-[#64748b] mt-0.5">
-          {data.platforms} {data.platforms === 1 ? "Track" : "Platforms"} · Signal: <span className="text-[#10b981] font-semibold">AUTO</span>
+        <p className="text-[9px] text-[#475569] mt-0.5 font-medium">
+          {data.platforms} {data.platforms === 1 ? "Track" : "Platforms"} · Signal: <span className="text-[#00875a] font-black">AUTO</span>
         </p>
       </div>
     </div>
@@ -126,16 +128,16 @@ function TrackEdge({
   const isOccupied = status.startsWith("OCCUPIED");
   const isSiding = data?.isSiding;
 
-  let strokeColor = "#10b981"; // CLEAR
+  let strokeColor = "#00875a"; // SCENARIO 1: Clear Network (Forest Green)
   let strokeWidth = 3.5;
   let strokeDasharray = undefined;
 
   if (isOccupied) {
-    strokeColor = status === "OCCUPIED_FREIGHT" ? "#6366f1" : status === "OCCUPIED_COASTAL" ? "#0ea5e9" : "#ef4444";
+    strokeColor = status === "OCCUPIED_FREIGHT" ? "#0284c7" : status === "OCCUPIED_COASTAL" ? "#ff8a00" : "#ff4d4d";
     strokeWidth = 4.5;
     strokeDasharray = "8,4";
   } else if (isCaution) {
-    strokeColor = "#f59e0b";
+    strokeColor = "#facc15"; // SCENARIO 2: Disruption / Caution (Sun Yellow)
     strokeWidth = 4;
     strokeDasharray = "6,4";
   } else if (isSiding) {
@@ -168,26 +170,26 @@ function TrackEdge({
         >
           {train ? (
             <div
-              className={`flex items-center gap-1 rounded-full px-2.5 py-1 text-[9px] font-bold text-white shadow-md border border-white/80 animate-pulse ${
+              className={`flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[9px] font-black text-white shadow-md border-2 border-[#1e293b] animate-pulse ${
                 train.type === "freight"
-                  ? "bg-[#6366f1]"
+                  ? "bg-[#0284c7]"
                   : train.type === "coastal"
-                  ? "bg-[#0ea5e9]"
-                  : "bg-[#ef4444]"
+                  ? "bg-[#ff8a00]"
+                  : "bg-[#ff4d4d]"
               }`}
             >
               <TrainFront size={11} />
               <span className="font-mono">{train.number}</span>
-              <span className="bg-black/30 px-1 py-0.2 rounded font-mono text-[8px]">
+              <span className="bg-black/35 px-1 py-0.2 rounded font-mono text-[8px]">
                 {train.speed} km/h
               </span>
             </div>
           ) : isCaution ? (
-            <div className="rounded-full bg-[#fffbeb] px-2 py-0.5 text-[8px] font-bold text-[#d97706] border border-[#fde68a] shadow-xs">
+            <div className="rounded-full bg-[#fef9c3] px-2 py-0.5 text-[8px] font-black text-[#854d0e] border-2 border-[#ca8a04] shadow-xs">
               ⚠️ 30 km/h TCO
             </div>
           ) : (
-            <div className="rounded bg-white/90 px-1.5 py-0.5 text-[8px] font-mono text-[#94a3b8] border border-[#e2e8f0] opacity-0 hover:opacity-100 transition shadow-xs">
+            <div className="rounded-md bg-white px-1.5 py-0.5 text-[8px] font-mono font-bold text-[#64748b] border border-[#1e293b]/20 opacity-0 hover:opacity-100 transition shadow-xs">
               {data?.label}
             </div>
           )}
@@ -214,13 +216,17 @@ export default function NetworkCommandCenter() {
   // MongoDB Summary & Delays
   const [summaryData, setSummaryData] = useState(null);
 
-  // Automated Scenario State (20s cycle)
+  // Automated Scenario State (20s cycle matching Slide 1 Scenarios)
   const [simStep, setSimStep] = useState(0);
   const [lastRefreshed, setLastRefreshed] = useState("");
   const [activeScenario, setActiveScenario] = useState({
-    name: "Express Precedence Execution",
-    tag: "DISPATCHING",
-    description: "Express 16526 given green corridor; Freight 58210 looped in Hassan Siding for precedence."
+    name: "SCENARIO 1: Normal Operation (Clear Network)",
+    tag: "NORMAL_OPERATION",
+    color: "#00875a",
+    process: "Sensors ping -> Kafka streams -> ETA calculated via physics base -> UI updates",
+    latency: "< 1 second",
+    accuracy: "98+%",
+    description: "Trains running normally with clear signals and no unexpected restrictions across Hassan & coastal lines."
   });
 
   const [activeCautionSection, setActiveCautionSection] = useState(null);
@@ -378,31 +384,38 @@ export default function NetworkCommandCenter() {
   useEffect(() => {
     const scenarios = [
       {
-        name: "Express Precedence Execution",
-        tag: "DISPATCHING",
-        description: "Express 16526 crosses Ghat section; Freight 58210 looped in Siding; Axle counts match 100%."
+        name: "SCENARIO 1: Normal Operation (Clear Network)",
+        tag: "NORMAL_OPERATION",
+        color: "#00875a",
+        process: "Sensors ping -> Kafka streams -> ETA calculated via physics base -> UI updates",
+        latency: "< 1 second",
+        accuracy: "98+%",
+        description: "Trains running normally with clear signals and no unexpected restrictions across Hassan & coastal lines."
       },
       {
-        name: "Temporary Caution Order Enforced",
-        tag: "SAFETY_RESTRICTION",
-        description: "Track renewal at SEC_HAS_ASK triggers automatic 30 km/h speed ceiling; Dynamic ETA auto-compounded (+6m)."
+        name: "SCENARIO 2: Dynamic Disruption (Congestion)",
+        tag: "DYNAMIC_DISRUPTION",
+        color: "#facc15",
+        process: "Neo4j detects blockage -> XGBoost recalculates delay -> UI updates smoothly",
+        latency: "2-5 seconds",
+        accuracy: "90-95%",
+        description: "Temporary Caution Order on SEC_HAS_ASK (30 km/h ceiling); Dynamic delay calculated and auto-propagated (+6m)."
       },
       {
-        name: "High-Speed Chord Clearance",
-        tag: "OPTIMAL_FLOW",
-        description: "Express 16526 advances to High-Speed Chord SEC_ASK_YPR; Section cleared behind it; Speed restored to 94.8 km/h."
-      },
-      {
-        name: "Terminal Approach Corridor",
-        tag: "TERMINAL_DISPATCH",
-        description: "Express 16526 enters Bengaluru terminal block; Freight departs siding towards Mysuru; Intercity clear."
+        name: "SCENARIO 3: Hardware Failure (Missing Data)",
+        tag: "HARDWARE_FAILURE",
+        color: "#ff4d4d",
+        process: "Pipeline detects missing ping -> Pandas imputes historical average -> ETA maintained",
+        latency: "10-15 seconds",
+        accuracy: "85-90%",
+        description: "Axle counter ping dropped at SEC_ASK_YPR; Imputation engine active; Express 16526 tracked via run profile."
       }
     ];
 
-    // Steady 20-second interval as requested
+    // Steady 20-second interval
     const interval = setInterval(() => {
       setSimStep((prev) => {
-        const next = (prev + 1) % 4;
+        const next = (prev + 1) % 3;
         setActiveScenario(scenarios[next]);
         const nowStr = new Date().toLocaleTimeString();
         setLastRefreshed(nowStr);
@@ -423,22 +436,14 @@ export default function NetworkCommandCenter() {
           });
           setActiveCautionSection("SEC_HAS_ASK");
           setSensorLogs((p) => [{ id: `log-${Date.now()}-${(Math.random() * 1e6) | 0}`, time: nowStr, sensor: "AC_IN_SEC_HAS_ASK", event: "TCO_RESTRICTION_TRIGGER", axles: 68, speed: "29.4 km/h (Capped)", status: "CAUTION" }, ...p.slice(0, 6)]);
-        } else if (next === 2) {
+        } else {
           setTrainStates({
-            express: { key: "express", number: "16526", name: "Kanyakumari Exp", type: "Superfast Express", section_id: "SEC_ASK_YPR", speed: 94.8, axlesPerSec: 5.12, delayMin: 3, status: "ON_TIME", etaDestination: "18:48 IST (KSR Bengaluru)", coaches: "24-coach LHB Rake (68 Axles)", precedence: "High-speed chord green signals granted", confidence: "98.9%" },
-            freight: { key: "freight", number: "58210", name: "BCN Freight Rake", type: "Heavy Goods", section_id: "SEC_HAS_MYS", speed: 42.0, axlesPerSec: 2.27, delayMin: 22, status: "DELAYED", etaDestination: "22:30 IST (Mysuru Jn)", coaches: "58-wagon BCN Freight Rake (116 Axles)", precedence: "Departed siding towards Mysuru following Express clearance", confidence: "95.5%" },
+            express: { key: "express", number: "16526", name: "Kanyakumari Exp", type: "Superfast Express", section_id: "SEC_ASK_YPR", speed: 94.8, axlesPerSec: 5.12, delayMin: 3, status: "ON_TIME", etaDestination: "18:48 IST (KSR Bengaluru)", coaches: "24-coach LHB Rake (68 Axles)", precedence: "Pandas missing ping imputation active", confidence: "88.5%" },
+            freight: { key: "freight", number: "58210", name: "BCN Freight Rake", type: "Heavy Goods", section_id: "SEC_HAS_MYS", speed: 42.0, axlesPerSec: 2.27, delayMin: 22, status: "DELAYED", etaDestination: "22:30 IST (Mysuru Jn)", coaches: "58-wagon BCN Freight Rake (116 Axles)", precedence: "Departed siding towards Mysuru", confidence: "95.5%" },
             coastal: { key: "coastal", number: "12685", name: "Mangaluru-Goa Intercity", type: "Express", section_id: "SEC_UD_KUDA", speed: 76.2, axlesPerSec: 4.12, delayMin: 0, status: "ON_TIME", etaDestination: "11:22 IST (Kundapura)", coaches: "18-coach ICF Rake (72 Axles)", precedence: "Approaching Kundapura platform line", confidence: "99.1%" }
           });
           setActiveCautionSection(null);
-          setSensorLogs((p) => [{ id: `log-${Date.now()}-${(Math.random() * 1e6) | 0}`, time: nowStr, sensor: "AC_OUT_SEC_HAS_ASK", event: "SECTION_CLEARED", axles: 68, speed: "94.8 km/h", status: "CLEAR" }, ...p.slice(0, 6)]);
-        } else {
-          setTrainStates({
-            express: { key: "express", number: "16526", name: "Kanyakumari Exp", type: "Superfast Express", section_id: "SEC_YPR_SBC", speed: 48.6, axlesPerSec: 2.62, delayMin: 2, status: "ON_TIME", etaDestination: "18:47 IST (KSR Bengaluru)", coaches: "24-coach LHB Rake (68 Axles)", precedence: "Terminal corridor entry authorized", confidence: "99.3%" },
-            freight: { key: "freight", number: "58210", name: "BCN Freight Rake", type: "Heavy Goods", section_id: "SEC_MYS_SBC", speed: 46.1, axlesPerSec: 2.49, delayMin: 24, status: "DELAYED", etaDestination: "22:35 IST (Mysuru Jn)", coaches: "58-wagon BCN Freight Rake (116 Axles)", precedence: "Main south corridor clear", confidence: "95.5%" },
-            coastal: { key: "coastal", number: "12685", name: "Mangaluru-Goa Intercity", type: "Express", section_id: "SEC_MAJN_UD", speed: 81.3, axlesPerSec: 4.39, delayMin: 1, status: "ON_TIME", etaDestination: "11:20 IST (Kundapura)", coaches: "18-coach ICF Rake (72 Axles)", precedence: "Coastal block signal clear", confidence: "99.1%" }
-          });
-          setActiveCautionSection(null);
-          setSensorLogs((p) => [{ id: `log-${Date.now()}-${(Math.random() * 1e6) | 0}`, time: nowStr, sensor: "AC_IN_SEC_YPR_SBC", event: "TERMINAL_BLOCK_ENTRY", axles: 68, speed: "48.6 km/h", status: "OCCUPIED" }, ...p.slice(0, 6)]);
+          setSensorLogs((p) => [{ id: `log-${Date.now()}-${(Math.random() * 1e6) | 0}`, time: nowStr, sensor: "AC_SYS_FAIL_SEC_ASK_YPR", event: "IMPUTED_AVERAGE_PATCH", axles: 68, speed: "94.8 km/h (Imputed)", status: "OCCUPIED" }, ...p.slice(0, 6)]);
         }
 
         return next;
@@ -461,44 +466,44 @@ export default function NetworkCommandCenter() {
   }, []);
 
   return (
-    <main className="min-h-screen bg-[#f8fafc] text-[#0f172a]">
+    <main className="min-h-screen bg-[#FAF7EE] text-[#0F172A] pb-12">
 
       {/* =====================================================
-          TOP NAVIGATION HEADER (CLEANED UP PER REQUEST)
+          TOP NAVIGATION HEADER (SIH 2026 PRESENTATION IDENTITY)
       ====================================================== */}
-      <header className="sticky top-0 z-40 border-b border-[#e2e8f0] bg-white/95 backdrop-blur-md">
-        <div className="mx-auto flex h-[64px] max-w-[1600px] items-center justify-between px-5 lg:px-8">
+      <header className="sticky top-0 z-40 border-b-2 border-[#1E293B]/15 bg-[#FAF7EE]/95 backdrop-blur-md">
+        <div className="mx-auto flex h-[66px] max-w-[1600px] items-center justify-between px-5 lg:px-8">
 
           {/* Left: Brand "AreWeThereYet" */}
           <div className="flex items-center gap-3">
-            <div className="flex h-[38px] w-[38px] items-center justify-center rounded-xl bg-gradient-to-tr from-[#2563eb] to-[#38bdf8] text-white shadow-xs">
-              <TrainFront size={20} />
+            <div className="flex h-[40px] w-[40px] items-center justify-center rounded-xl bg-[#FF8A00] text-white shadow-xs border-2 border-[#1E293B]">
+              <TrainFront size={22} />
             </div>
 
             <div>
               <div className="flex items-center gap-2">
-                <span className="text-[17px] font-bold tracking-tight text-[#0f172a]">
+                <span className="text-[18px] font-black tracking-tight text-[#0F172A]">
                   AreWeThereYet
                 </span>
-                <span className="rounded-full bg-[#eff6ff] px-2.5 py-0.5 text-[9px] font-bold text-[#2563eb] border border-[#bfdbfe]">
-                  Section Control Room
+                <span className="rounded-full bg-[#0284C7] px-2.5 py-0.5 text-[9px] font-black text-white border border-[#0369A1] shadow-2xs">
+                  Smart India Hackathon 2026
                 </span>
               </div>
-              <p className="text-[10px] text-[#64748b]">
+              <p className="text-[10px] font-medium text-[#475569]">
                 Real-Time Physical Sensing · Axle Counter Topology · Dynamic ETA System
               </p>
             </div>
           </div>
 
-          {/* Right: Refresh Status Indicator */}
+          {/* Right: GHAZAL Team Badge & Sync DB Button */}
           <div className="flex items-center gap-3">
-            <span className="text-[10px] text-[#94a3b8] hidden sm:inline">
-              Topology cycle: 20s · Updated: <strong className="font-mono text-[#64748b]">{lastRefreshed || "Just now"}</strong>
+            <span className="inline-flex items-center rounded-full border-2 border-[#1E293B] bg-white px-4 py-1.5 text-xs font-black text-[#0F172A] shadow-2xs tracking-wider uppercase">
+              GHAZAL
             </span>
             <button
               type="button"
               onClick={loadDashboardData}
-              className="flex items-center gap-1.5 rounded-lg border border-[#e2e8f0] bg-[#f8fafc] px-3 py-1.5 text-[11px] font-semibold text-[#475569] shadow-xs transition hover:bg-white hover:text-[#2563eb]"
+              className="flex items-center gap-1.5 rounded-xl border-2 border-[#1E293B] bg-white px-3.5 py-1.5 text-[11px] font-black text-[#0F172A] shadow-xs transition hover:bg-[#FF8A00] hover:text-white"
             >
               <RefreshCw size={13} />
               Sync DB
@@ -512,85 +517,85 @@ export default function NetworkCommandCenter() {
       {/* =====================================================
           MAIN DASHBOARD BODY
       ====================================================== */}
-      <div className="mx-auto max-w-[1600px] px-5 py-6 lg:px-8 space-y-6">
+      <div className="mx-auto max-w-[1600px] w-full px-5 py-6 lg:px-8 space-y-6">
 
         {/* =====================================================
-            1. TOP METRIC CARDS (INFORMATIVE NETWORK FLOW)
+            1. TOP METRIC CARDS (SIH HIGH-CONTRAST PALETTE)
         ====================================================== */}
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
 
-          <div className="rounded-2xl border border-[#e2e8f0] bg-white p-4 shadow-xs hover:shadow-sm transition">
+          <div className="rounded-2xl border-2 border-[#1E293B]/20 bg-white p-4 shadow-sm hover:border-[#1E293B] transition">
             <div className="flex items-center justify-between text-[#64748b]">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-[#64748b]">Monitored Blocks</span>
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#eff6ff] text-[#2563eb]">
+              <span className="text-[10px] font-black uppercase tracking-wider text-[#475569]">Monitored Blocks</span>
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#0284C7] text-white border border-[#0369A1] shadow-2xs">
                 <Layers size={14} />
               </div>
             </div>
-            <div className="mt-2 text-2xl font-extrabold text-[#0f172a]">
-              10 <span className="text-xs font-normal text-[#64748b]">Blocks</span>
+            <div className="mt-2 text-2xl font-black text-[#0F172A]">
+              10 <span className="text-xs font-semibold text-[#64748b]">Blocks</span>
             </div>
-            <div className="mt-1 flex items-center gap-1 text-[10px] font-semibold text-[#10b981]">
+            <div className="mt-1 flex items-center gap-1 text-[10px] font-bold text-[#00875A]">
               <CheckCircle2 size={12} /> 100% Sensor Grid Active
             </div>
           </div>
 
-          <div className="rounded-2xl border border-[#e2e8f0] bg-white p-4 shadow-xs hover:shadow-sm transition">
+          <div className="rounded-2xl border-2 border-[#1E293B]/20 bg-white p-4 shadow-sm hover:border-[#1E293B] transition">
             <div className="flex items-center justify-between text-[#64748b]">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-[#64748b]">Active Trains</span>
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#f0fdfa] text-[#0d9488]">
+              <span className="text-[10px] font-black uppercase tracking-wider text-[#475569]">Active Trains</span>
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#FF8A00] text-white border border-[#EA580C] shadow-2xs">
                 <TrainFront size={14} />
               </div>
             </div>
-            <div className="mt-2 text-2xl font-extrabold text-[#0f172a]">
-              3 <span className="text-xs font-normal text-[#64748b]">On Track</span>
+            <div className="mt-2 text-2xl font-black text-[#0F172A]">
+              3 <span className="text-xs font-semibold text-[#64748b]">On Track</span>
             </div>
-            <div className="mt-1 text-[10px] font-semibold text-[#2563eb] truncate">
+            <div className="mt-1 text-[10px] font-bold text-[#0284C7] truncate">
               Express · Freight · Intercity
             </div>
           </div>
 
-          {/* REPLACED STAT CARD: NETWORK FLOW VELOCITY */}
-          <div className="rounded-2xl border border-[#e2e8f0] bg-white p-4 shadow-xs hover:shadow-sm transition">
+          {/* STAT CARD: NETWORK FLOW VELOCITY */}
+          <div className="rounded-2xl border-2 border-[#1E293B]/20 bg-white p-4 shadow-sm hover:border-[#1E293B] transition">
             <div className="flex items-center justify-between text-[#64748b]">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-[#64748b]">Network Flow Velocity</span>
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#fffbeb] text-[#d97706]">
+              <span className="text-[10px] font-black uppercase tracking-wider text-[#475569]">Network Velocity</span>
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#FACC15] text-[#0F172A] border border-[#CA8A04] shadow-2xs">
                 <Gauge size={14} />
               </div>
             </div>
-            <div className="mt-2 text-2xl font-extrabold text-[#0f172a]">
-              {networkAverageSpeed} <span className="text-xs font-normal text-[#64748b]">km/h</span>
+            <div className="mt-2 text-2xl font-black text-[#0F172A]">
+              {networkAverageSpeed} <span className="text-xs font-semibold text-[#64748b]">km/h</span>
             </div>
-            <div className="mt-1 text-[10px] font-semibold text-[#059669]">
+            <div className="mt-1 text-[10px] font-bold text-[#00875A]">
               Fleet: 42–95 km/h · 92% On-Time
             </div>
           </div>
 
-          <div className="rounded-2xl border border-[#e2e8f0] bg-white p-4 shadow-xs hover:shadow-sm transition">
+          <div className="rounded-2xl border-2 border-[#1E293B]/20 bg-white p-4 shadow-sm hover:border-[#1E293B] transition">
             <div className="flex items-center justify-between text-[#64748b]">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-[#64748b]">Caution Orders</span>
-              <div className={`flex h-7 w-7 items-center justify-center rounded-lg ${activeCautionSection ? 'bg-[#fef2f2] text-[#ef4444]' : 'bg-[#ecfdf5] text-[#10b981]'}`}>
+              <span className="text-[10px] font-black uppercase tracking-wider text-[#475569]">Caution Orders</span>
+              <div className={`flex h-7 w-7 items-center justify-center rounded-lg border shadow-2xs ${activeCautionSection ? 'bg-[#FF4D4D] text-white border-[#DC2626]' : 'bg-[#00875A] text-white border-[#047857]'}`}>
                 <AlertTriangle size={14} />
               </div>
             </div>
-            <div className="mt-2 text-2xl font-extrabold text-[#0f172a]">
-              {activeCautionSection ? 1 : 0} <span className="text-xs font-normal text-[#64748b]">Active TCO</span>
+            <div className="mt-2 text-2xl font-black text-[#0F172A]">
+              {activeCautionSection ? 1 : 0} <span className="text-xs font-semibold text-[#64748b]">Active TCO</span>
             </div>
-            <div className={`mt-1 text-[10px] font-semibold truncate ${activeCautionSection ? 'text-[#ef4444]' : 'text-[#10b981]'}`}>
+            <div className={`mt-1 text-[10px] font-bold truncate ${activeCautionSection ? 'text-[#DC2626]' : 'text-[#00875A]'}`}>
               {activeCautionSection ? "30 km/h on Hassan-Arsikere" : "Nominal Speeds Permitted"}
             </div>
           </div>
 
-          <div className="rounded-2xl border border-[#e2e8f0] bg-white p-4 shadow-xs hover:shadow-sm transition">
+          <div className="rounded-2xl border-2 border-[#1E293B]/20 bg-white p-4 shadow-sm hover:border-[#1E293B] transition">
             <div className="flex items-center justify-between text-[#64748b]">
-              <span className="text-[10px] font-bold uppercase tracking-wider text-[#64748b]">ETA Accuracy</span>
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#eff6ff] text-[#2563eb]">
+              <span className="text-[10px] font-black uppercase tracking-wider text-[#475569]">ETA Accuracy</span>
+              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#0F4C81] text-white border border-[#0A3358] shadow-2xs">
                 <ShieldCheck size={14} />
               </div>
             </div>
-            <div className="mt-2 text-2xl font-extrabold text-[#0f172a]">
+            <div className="mt-2 text-2xl font-black text-[#0F172A]">
               98.4%
             </div>
-            <div className="mt-1 text-[10px] font-semibold text-[#10b981]">
+            <div className="mt-1 text-[10px] font-bold text-[#00875A]">
               Ground-Truth Calibrated
             </div>
           </div>
@@ -601,38 +606,62 @@ export default function NetworkCommandCenter() {
         {/* =====================================================
             2. 2D RAILWAY NETWORK CANVAS (20s REFRESH CADENCE)
         ====================================================== */}
-        <section className="rounded-2xl border border-[#e2e8f0] bg-white p-6 shadow-xs space-y-4">
+        <section className="rounded-2xl border-2 border-[#1E293B]/20 bg-white p-6 shadow-sm space-y-4">
           
-          {/* Header & Scenario Banner */}
-          <div className="flex flex-col justify-between gap-4 border-b border-[#f1f5f9] pb-4 lg:flex-row lg:items-center">
+          {/* Header & Slide 1 Scenario Banner */}
+          <div className="flex flex-col justify-between gap-4 border-b-2 border-[#1E293B]/10 pb-4 lg:flex-row lg:items-center">
             <div>
               <div className="flex items-center gap-2">
-                <Route size={18} className="text-[#2563eb]" />
-                <h2 className="text-[15px] font-bold text-[#0f172a]">
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#0284C7] text-white border border-[#0369A1]">
+                  <Route size={16} />
+                </div>
+                <h2 className="text-[16px] font-black text-[#0F172A]">
                   Block Section Network Topology & Sensor Grid
                 </h2>
-                <span className="rounded-full bg-[#ecfdf5] border border-[#a7f3d0] px-2.5 py-0.5 text-[9px] font-bold text-[#059669]">
+                <span className="rounded-full bg-[#00875A] border border-[#047857] px-2.5 py-0.5 text-[9px] font-black text-white shadow-2xs">
                   20s Cycle Active
                 </span>
               </div>
-              <p className="mt-0.5 text-[11px] text-[#64748b]">
+              <p className="mt-0.5 text-[11px] font-medium text-[#475569]">
                 Real-time block occupancy from track circuits & axle counters. Click any station or track section to inspect telemetry.
               </p>
             </div>
 
-            {/* Current Scenario Card */}
-            <div className="flex items-center gap-3 rounded-xl bg-[#f8fafc] border border-[#e2e8f0] px-3.5 py-2">
-              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-[#2563eb]/10 text-[#2563eb]">
-                <Activity size={14} />
+            {/* Current Scenario Card (Slide 1 "How we work?") */}
+            <div className="flex items-center gap-3 rounded-xl bg-[#FFFBEB] border-2 border-[#1E293B]/20 px-3.5 py-2 shadow-2xs">
+              <div
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-white font-black shadow-2xs"
+                style={{
+                  backgroundColor:
+                    activeScenario.tag === "NORMAL_OPERATION"
+                      ? "#00875A"
+                      : activeScenario.tag === "DYNAMIC_DISRUPTION"
+                      ? "#FACC15"
+                      : "#FF4D4D",
+                  color: activeScenario.tag === "DYNAMIC_DISRUPTION" ? "#0F172A" : "#FFFFFF",
+                }}
+              >
+                <Activity size={16} />
               </div>
               <div className="min-w-0">
                 <div className="flex items-center gap-2">
-                  <span className="text-[10px] font-bold text-[#0f172a]">{activeScenario.name}</span>
-                  <span className="rounded bg-[#eff6ff] text-[#2563eb] text-[8px] font-mono px-1.5 py-0.5 font-bold">
+                  <span className="text-[11px] font-black text-[#0F172A]">{activeScenario.name}</span>
+                  <span
+                    className="rounded px-2 py-0.5 text-[8px] font-mono font-black"
+                    style={{
+                      backgroundColor:
+                        activeScenario.tag === "NORMAL_OPERATION"
+                          ? "#00875A"
+                          : activeScenario.tag === "DYNAMIC_DISRUPTION"
+                          ? "#FACC15"
+                          : "#FF4D4D",
+                      color: activeScenario.tag === "DYNAMIC_DISRUPTION" ? "#0F172A" : "#FFFFFF",
+                    }}
+                  >
                     AUTO 20s
                   </span>
                 </div>
-                <p className="text-[9px] text-[#64748b] truncate max-w-[340px]">
+                <p className="text-[9px] text-[#475569] font-medium truncate max-w-[360px]">
                   {activeScenario.description}
                 </p>
               </div>
@@ -640,7 +669,7 @@ export default function NetworkCommandCenter() {
           </div>
 
           {/* REACT FLOW CANVAS CONTAINER (SPACIOUS 560px HEIGHT) */}
-          <div className="h-[560px] w-full rounded-xl border border-[#e2e8f0] bg-[#fafbfc] relative overflow-hidden">
+          <div className="h-[560px] w-full rounded-xl border-2 border-[#1E293B]/20 bg-[#FDFBF7] relative overflow-hidden">
             <ReactFlow
               nodes={nodes}
               edges={edges}
@@ -656,49 +685,49 @@ export default function NetworkCommandCenter() {
               maxZoom={1.5}
             >
               <Background variant="dots" gap={16} size={1} color="#cbd5e1" />
-              <Controls className="bg-white border border-[#e2e8f0] shadow-xs rounded-lg" />
+              <Controls className="bg-white border-2 border-[#1E293B]/30 shadow-xs rounded-xl" />
             </ReactFlow>
           </div>
 
           {/* Legend & Selected Details Readout */}
-          <div className="flex flex-wrap items-center justify-between gap-4 border-t border-[#f1f5f9] pt-4">
+          <div className="flex flex-wrap items-center justify-between gap-4 border-t-2 border-[#1E293B]/10 pt-4">
             
             {/* Status Legend */}
             <div className="flex flex-wrap items-center gap-4 text-[10px]">
               <div className="flex items-center gap-1.5">
-                <span className="h-2.5 w-2.5 rounded-full bg-[#10b981]" />
-                <span className="text-[#64748b]">Clear Block</span>
+                <span className="h-3 w-3 rounded-full bg-[#00875A] border border-[#047857]" />
+                <span className="font-bold text-[#475569]">Clear Block (Scenario 1)</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <span className="h-2.5 w-2.5 rounded-full bg-[#ef4444]" />
-                <span className="text-[#64748b]">Occupied (Express)</span>
+                <span className="h-3 w-3 rounded-full bg-[#FF4D4D] border border-[#B91C1C]" />
+                <span className="font-bold text-[#475569]">Occupied (Express 16526)</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <span className="h-2.5 w-2.5 rounded-full bg-[#6366f1]" />
-                <span className="text-[#64748b]">Freight Siding Loop</span>
+                <span className="h-3 w-3 rounded-full bg-[#0284C7] border border-[#0369A1]" />
+                <span className="font-bold text-[#475569]">Freight Siding Loop (58210)</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <span className="h-2.5 w-2.5 rounded-full bg-[#0ea5e9]" />
-                <span className="text-[#64748b]">Coastal Intercity</span>
+                <span className="h-3 w-3 rounded-full bg-[#FF8A00] border border-[#EA580C]" />
+                <span className="font-bold text-[#475569]">Coastal Intercity (12685)</span>
               </div>
               <div className="flex items-center gap-1.5">
-                <span className="h-2.5 w-2.5 rounded-full bg-[#f59e0b]" />
-                <span className="text-[#64748b]">Caution Order (30 km/h)</span>
+                <span className="h-3 w-3 rounded-full bg-[#FACC15] border border-[#CA8A04]" />
+                <span className="font-bold text-[#475569]">Caution Order / TCO (Scenario 2)</span>
               </div>
             </div>
 
             {/* Selected Readout */}
             {selectedDetails && (
-              <div className="flex items-center gap-3 text-[11px] font-semibold text-[#0f172a] bg-[#f8fafc] border border-[#e2e8f0] px-3.5 py-1.5 rounded-xl">
-                <Cpu size={14} className="text-[#2563eb]" />
+              <div className="flex items-center gap-3 text-[11px] font-bold text-[#0F172A] bg-[#FFFBEB] border-2 border-[#1E293B]/20 px-3.5 py-1.5 rounded-xl shadow-2xs">
+                <Cpu size={14} className="text-[#0284C7]" />
                 <span>
                   Selected {selectedDetails.type === "station" ? "Station" : "Section"}:{" "}
-                  <strong className="font-mono text-[#2563eb]">
+                  <strong className="font-mono text-[#0284C7]">
                     {selectedDetails.code || selectedDetails.id}
                   </strong>{" "}
                   ({selectedDetails.name || selectedDetails.label})
                 </span>
-                <span className="text-[10px] text-[#64748b]">
+                <span className="text-[10px] text-[#475569]">
                   {selectedDetails.platforms ? `· ${selectedDetails.platforms} Platforms` : `· MPS: ${selectedDetails.mps || 100} km/h`}
                 </span>
               </div>
@@ -716,19 +745,21 @@ export default function NetworkCommandCenter() {
         <div className="grid grid-cols-1 lg:grid-cols-12 gap-6">
 
           {/* Currently Running Trains (7 Columns) - Drives Telemetry Below */}
-          <section className="lg:col-span-7 rounded-2xl border border-[#e2e8f0] bg-white p-5 shadow-xs space-y-4">
+          <section className="lg:col-span-7 rounded-2xl border-2 border-[#1E293B]/20 bg-white p-5 shadow-sm space-y-4">
             
-            <div className="flex items-center justify-between border-b border-[#f1f5f9] pb-3">
+            <div className="flex items-center justify-between border-b-2 border-[#1E293B]/10 pb-3">
               <div>
                 <div className="flex items-center gap-2">
-                  <TrainFront size={18} className="text-[#2563eb]" />
-                  <h3 className="text-sm font-bold text-[#0f172a]">Currently Running Trains</h3>
+                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#0284C7] text-white">
+                    <TrainFront size={16} />
+                  </div>
+                  <h3 className="text-[15px] font-black text-[#0F172A]">Currently Running Trains</h3>
                 </div>
-                <p className="text-[10px] text-[#64748b] mt-0.5">
+                <p className="text-[10px] font-medium text-[#475569] mt-0.5">
                   Click any train below to inspect its dedicated Speed Derivation & Circumstance Engine.
                 </p>
               </div>
-              <span className="text-[10px] font-bold text-[#2563eb] bg-[#eff6ff] border border-[#bfdbfe] px-2 py-0.5 rounded-full">
+              <span className="text-[9px] font-black text-white bg-[#0284C7] border border-[#0369A1] px-2.5 py-0.5 rounded-full shadow-2xs">
                 3 Active Trains
               </span>
             </div>
@@ -742,54 +773,54 @@ export default function NetworkCommandCenter() {
                   <div
                     key={train.key}
                     onClick={() => setSelectedTrainKey(train.key)}
-                    className={`flex items-center justify-between p-3.5 rounded-xl border transition cursor-pointer ${
+                    className={`flex items-center justify-between p-3.5 rounded-xl border-2 transition cursor-pointer ${
                       isSelected
-                        ? "border-[#2563eb] bg-[#eff6ff]/40 ring-2 ring-[#2563eb]/20 shadow-xs"
-                        : "border-[#e2e8f0] bg-[#f8fafc] hover:bg-white hover:border-[#cbd5e1]"
+                        ? "border-[#0284C7] bg-[#E0F2FE]/50 ring-2 ring-[#0284C7]/20 shadow-2xs"
+                        : "border-[#1E293B]/10 bg-[#FAF7EE] hover:bg-white hover:border-[#1E293B]/50"
                     }`}
                   >
                     <div className="flex items-center gap-3">
                       <div
-                        className={`flex h-9 w-9 items-center justify-center rounded-xl text-white font-bold shadow-xs ${
+                        className={`flex h-9 w-9 items-center justify-center rounded-xl text-white font-bold shadow-xs border-2 border-[#1E293B] ${
                           train.key === "freight"
-                            ? "bg-[#6366f1]"
+                            ? "bg-[#0284C7]"
                             : train.key === "coastal"
-                            ? "bg-[#0ea5e9]"
-                            : "bg-[#2563eb]"
+                            ? "bg-[#FF8A00]"
+                            : "bg-[#FF4D4D]"
                         }`}
                       >
                         <TrainFront size={18} />
                       </div>
                       <div>
                         <div className="flex items-center gap-2">
-                          <span className="font-mono text-xs font-bold text-[#0f172a]">
+                          <span className="font-mono text-xs font-black text-[#0F172A]">
                             {train.number}
                           </span>
-                          <span className="text-[11px] font-semibold text-[#475569]">
+                          <span className="text-[11px] font-bold text-[#334155]">
                             {train.name}
                           </span>
-                          <span className="text-[9px] text-[#94a3b8]">({train.type})</span>
+                          <span className="text-[9px] font-semibold text-[#64748B]">({train.type})</span>
                         </div>
-                        <p className="text-[10px] text-[#64748b] flex items-center gap-1 mt-0.5">
-                          <MapPin size={11} className="text-[#2563eb]" /> Block Section:{" "}
-                          <strong className="font-mono text-[#0f172a]">{train.section_id}</strong>
+                        <p className="text-[10px] text-[#475569] font-medium flex items-center gap-1 mt-0.5">
+                          <MapPin size={11} className="text-[#0284C7]" /> Block Section:{" "}
+                          <strong className="font-mono text-[#0F172A]">{train.section_id}</strong>
                         </p>
                       </div>
                     </div>
 
                     <div className="text-right">
-                      <div className="flex items-center justify-end gap-1.5 font-mono text-xs font-bold text-[#0f172a]">
-                        <Gauge size={13} className="text-[#d97706]" />
+                      <div className="flex items-center justify-end gap-1.5 font-mono text-xs font-black text-[#0F172A]">
+                        <Gauge size={13} className="text-[#FF8A00]" />
                         {train.speed} km/h
                       </div>
                       <div className="mt-0.5">
                         <span
-                          className={`text-[9px] font-bold px-2 py-0.5 rounded-full ${
+                          className={`text-[9px] font-black px-2 py-0.5 rounded-full shadow-2xs ${
                             train.status === "HELD_IN_SIDING"
-                              ? "bg-[#f5f3ff] text-[#7c3aed] border border-[#ddd6fe]"
+                              ? "bg-[#0284C7] text-white border border-[#0369A1]"
                               : train.delayMin > 0
-                              ? "bg-[#fffbeb] text-[#d97706] border border-[#fde68a]"
-                              : "bg-[#ecfdf5] text-[#059669] border border-[#a7f3d0]"
+                              ? "bg-[#FACC15] text-[#0F172A] border-2 border-[#CA8A04]"
+                              : "bg-[#00875A] text-white border border-[#047857]"
                           }`}
                         >
                           {train.status === "HELD_IN_SIDING"
@@ -809,55 +840,59 @@ export default function NetworkCommandCenter() {
 
 
           {/* Delay Root Causes & Active Alerts (5 Columns) */}
-          <section className="lg:col-span-5 rounded-2xl border border-[#e2e8f0] bg-white p-5 shadow-xs space-y-4">
+          <section className="lg:col-span-5 rounded-2xl border-2 border-[#1E293B]/20 bg-white p-5 shadow-sm space-y-4">
             
-            <div className="flex items-center justify-between border-b border-[#f1f5f9] pb-3">
+            <div className="flex items-center justify-between border-b-2 border-[#1E293B]/10 pb-3">
               <div className="flex items-center gap-2">
-                <Activity size={18} className="text-[#ef4444]" />
-                <h3 className="text-sm font-bold text-[#0f172a]">Network Delays & Alerts</h3>
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#FF4D4D] text-white">
+                  <Activity size={16} />
+                </div>
+                <h3 className="text-[15px] font-black text-[#0F172A]">Network Delays & Alerts</h3>
               </div>
-              <span className="text-[10px] font-mono text-[#64748b]">Live DB Sync</span>
+              <span className="text-[9px] font-mono font-bold text-[#475569] bg-[#FFFBEB] border border-[#1E293B]/20 px-2 py-0.5 rounded-md">
+                Live DB Sync
+              </span>
             </div>
 
             {/* Delay Cause Bars */}
-            <div className="space-y-2.5">
+            <div className="space-y-3">
               <div>
-                <div className="flex items-center justify-between text-[11px] font-semibold text-[#0f172a] mb-1">
-                  <span className="flex items-center gap-1.5"><Wrench size={13} className="text-[#d97706]" /> Maintenance Blocks (TCO)</span>
-                  <span className="font-mono text-[10px] text-[#64748b]">1 Section (42%)</span>
+                <div className="flex items-center justify-between text-[11px] font-bold text-[#0F172A] mb-1">
+                  <span className="flex items-center gap-1.5"><Wrench size={13} className="text-[#FF8A00]" /> Maintenance Blocks (TCO)</span>
+                  <span className="font-mono text-[10px] text-[#475569]">1 Section (42%)</span>
                 </div>
-                <div className="h-2 w-full rounded-full bg-[#f1f5f9] overflow-hidden">
-                  <div className="h-full bg-[#f59e0b] rounded-full" style={{ width: "42%" }} />
+                <div className="h-2 w-full rounded-full bg-[#E5E7EB] overflow-hidden">
+                  <div className="h-full bg-[#FF8A00] rounded-full" style={{ width: "42%" }} />
                 </div>
               </div>
 
               <div>
-                <div className="flex items-center justify-between text-[11px] font-semibold text-[#0f172a] mb-1">
-                  <span className="flex items-center gap-1.5"><CircleStop size={13} className="text-[#6366f1]" /> Siding Precedence Wait</span>
-                  <span className="font-mono text-[10px] text-[#64748b]">1 Train (35%)</span>
+                <div className="flex items-center justify-between text-[11px] font-bold text-[#0F172A] mb-1">
+                  <span className="flex items-center gap-1.5"><CircleStop size={13} className="text-[#0284C7]" /> Siding Precedence Wait</span>
+                  <span className="font-mono text-[10px] text-[#475569]">1 Train (35%)</span>
                 </div>
-                <div className="h-2 w-full rounded-full bg-[#f1f5f9] overflow-hidden">
-                  <div className="h-full bg-[#6366f1] rounded-full" style={{ width: "35%" }} />
+                <div className="h-2 w-full rounded-full bg-[#E5E7EB] overflow-hidden">
+                  <div className="h-full bg-[#0284C7] rounded-full" style={{ width: "35%" }} />
                 </div>
               </div>
 
               <div>
-                <div className="flex items-center justify-between text-[11px] font-semibold text-[#0f172a] mb-1">
-                  <span className="flex items-center gap-1.5"><CloudRain size={13} className="text-[#0284c7]" /> Weather & Adhesion</span>
-                  <span className="font-mono text-[10px] text-[#64748b]">Nominal (0%)</span>
+                <div className="flex items-center justify-between text-[11px] font-bold text-[#0F172A] mb-1">
+                  <span className="flex items-center gap-1.5"><CloudRain size={13} className="text-[#0EA5E9]" /> Weather & Adhesion</span>
+                  <span className="font-mono text-[10px] text-[#475569]">Nominal (0%)</span>
                 </div>
-                <div className="h-2 w-full rounded-full bg-[#f1f5f9] overflow-hidden">
-                  <div className="h-full bg-[#0ea5e9] rounded-full" style={{ width: "5%" }} />
+                <div className="h-2 w-full rounded-full bg-[#E5E7EB] overflow-hidden">
+                  <div className="h-full bg-[#0EA5E9] rounded-full" style={{ width: "5%" }} />
                 </div>
               </div>
             </div>
 
             {/* Active Alert Banner */}
-            <div className="rounded-xl border border-[#fee2e2] bg-[#fef2f2]/60 p-3 text-xs space-y-1">
-              <div className="flex items-center gap-1.5 text-[#ef4444] font-bold text-[11px]">
-                <AlertTriangle size={14} /> Operational Alert:
+            <div className="rounded-xl border-2 border-[#FF4D4D] bg-[#FEF2F2] p-3.5 text-xs space-y-1 shadow-2xs">
+              <div className="flex items-center gap-1.5 text-[#DC2626] font-black text-[11px]">
+                <AlertTriangle size={15} /> Operational Alert:
               </div>
-              <p className="text-[10px] text-[#991b1b] leading-tight">
+              <p className="text-[10px] text-[#991B1B] font-bold leading-tight">
                 {activeCautionSection
                   ? `Caution Order enforced on ${activeCautionSection} (30 km/h speed ceiling active).`
                   : "All main lines clear. Freight 58210 held in Hassan Siding to maintain Express priority."}
@@ -875,16 +910,18 @@ export default function NetworkCommandCenter() {
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
           {/* Real-Time Speed Derivation for the Selected Train */}
-          <section className="rounded-2xl border border-[#e2e8f0] bg-white p-5 shadow-xs space-y-4">
+          <section className="rounded-2xl border-2 border-[#1E293B]/20 bg-white p-5 shadow-sm space-y-4">
             
-            <div className="flex items-center justify-between border-b border-[#f1f5f9] pb-3">
+            <div className="flex items-center justify-between border-b-2 border-[#1E293B]/10 pb-3">
               <div className="flex items-center gap-2">
-                <Gauge size={18} className="text-[#d97706]" />
-                <h3 className="text-sm font-bold text-[#0f172a]">
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#FF8A00] text-white">
+                  <Gauge size={16} />
+                </div>
+                <h3 className="text-[15px] font-black text-[#0F172A]">
                   Speed & Axle Derivation: Train {currentSelectedTrain.number}
                 </h3>
               </div>
-              <span className="text-[10px] font-mono font-bold text-[#2563eb] bg-[#eff6ff] px-2.5 py-1 rounded-full border border-[#bfdbfe]">
+              <span className="text-[10px] font-mono font-black text-white bg-[#0284C7] px-2.5 py-1 rounded-full border border-[#0369A1] shadow-2xs">
                 {currentSelectedTrain.name}
               </span>
             </div>
@@ -892,29 +929,29 @@ export default function NetworkCommandCenter() {
             {/* Two Derivation Methods for Selected Train */}
             <div className="grid grid-cols-2 gap-3">
               
-              <div className="rounded-xl border border-[#e2e8f0] bg-[#f8fafc] p-3.5 space-y-1">
-                <div className="flex items-center justify-between text-[10px] text-[#64748b]">
+              <div className="rounded-xl border-2 border-[#1E293B]/20 bg-[#FFFBEB] p-3.5 space-y-1 shadow-2xs">
+                <div className="flex items-center justify-between text-[10px] text-[#475569]">
                   <span className="font-bold">Method 1: Axles / Second</span>
-                  <Radio size={13} className="text-[#0284c7]" />
+                  <Radio size={13} className="text-[#0284C7]" />
                 </div>
-                <div className="text-2xl font-bold font-mono text-[#0f172a]">
-                  {currentSelectedTrain.speed} <span className="text-xs text-[#64748b] font-normal">km/h</span>
+                <div className="text-2xl font-black font-mono text-[#0F172A]">
+                  {currentSelectedTrain.speed} <span className="text-xs text-[#64748B] font-normal">km/h</span>
                 </div>
-                <p className="text-[9px] text-[#64748b] font-mono">
+                <p className="text-[9px] text-[#475569] font-mono font-medium">
                   Speed ≈ Axle Spacing / Δt (Freq: {currentSelectedTrain.axlesPerSec} Hz)
                 </p>
               </div>
 
-              <div className="rounded-xl border border-[#e2e8f0] bg-[#f8fafc] p-3.5 space-y-1">
-                <div className="flex items-center justify-between text-[10px] text-[#64748b]">
+              <div className="rounded-xl border-2 border-[#1E293B]/20 bg-[#FFFBEB] p-3.5 space-y-1 shadow-2xs">
+                <div className="flex items-center justify-between text-[10px] text-[#475569]">
                   <span className="font-bold">Method 2: Block Transit Time</span>
-                  <Clock3 size={13} className="text-[#10b981]" />
+                  <Clock3 size={13} className="text-[#00875A]" />
                 </div>
-                <div className="text-2xl font-bold font-mono text-[#0f172a]">
+                <div className="text-2xl font-black font-mono text-[#0F172A]">
                   {currentSelectedTrain.speed > 0 ? +(currentSelectedTrain.speed * 0.98).toFixed(1) : 0.0}{" "}
-                  <span className="text-xs text-[#64748b] font-normal">km/h</span>
+                  <span className="text-xs text-[#64748B] font-normal">km/h</span>
                 </div>
-                <p className="text-[9px] text-[#64748b] font-mono">
+                <p className="text-[9px] text-[#475569] font-mono font-medium">
                   v = d / (t_exit - t_entry) across block section
                 </p>
               </div>
@@ -923,27 +960,27 @@ export default function NetworkCommandCenter() {
 
             {/* Live Sensor Ticker */}
             <div className="space-y-2">
-              <div className="flex items-center justify-between text-[10px] font-bold text-[#64748b]">
+              <div className="flex items-center justify-between text-[10px] font-black text-[#475569]">
                 <span>Live Axle Counter Trigger Feed</span>
-                <span className="flex items-center gap-1 text-[#059669]">
-                  <span className="h-1.5 w-1.5 rounded-full bg-[#10b981] animate-ping" /> Live Stream
+                <span className="flex items-center gap-1 text-[#00875A]">
+                  <span className="h-1.5 w-1.5 rounded-full bg-[#00875A] animate-ping" /> Live Stream
                 </span>
               </div>
 
-              <div className="rounded-xl border border-[#e2e8f0] bg-[#f8fafc] p-3 font-mono text-[10px] space-y-2 max-h-[145px] overflow-y-auto">
+              <div className="rounded-xl border-2 border-[#1E293B]/20 bg-[#FAF7EE] p-3 font-mono text-[10px] space-y-2 max-h-[145px] overflow-y-auto">
                 {sensorLogs.map((log, idx) => (
-                  <div key={`${log.id || log.time}-${idx}`} className="flex items-center justify-between border-b border-[#e2e8f0] pb-1.5 last:border-0 last:pb-0">
-                    <span className="text-[#94a3b8]">{log.time}</span>
-                    <span className="text-[#2563eb] font-bold">{log.sensor}</span>
-                    <span className="text-[#334155]">{log.event}</span>
-                    <span className="text-[#d97706] font-bold">{log.speed}</span>
+                  <div key={`${log.id || log.time}-${idx}`} className="flex items-center justify-between border-b border-[#1E293B]/10 pb-1.5 last:border-0 last:pb-0">
+                    <span className="text-[#64748B]">{log.time}</span>
+                    <span className="text-[#0284C7] font-bold">{log.sensor}</span>
+                    <span className="text-[#0F172A] font-semibold">{log.event}</span>
+                    <span className="text-[#FF8A00] font-black">{log.speed}</span>
                     <span
-                      className={`px-2 py-0.5 rounded text-[8px] font-bold ${
+                      className={`px-2 py-0.5 rounded text-[8px] font-black shadow-2xs ${
                         log.status === "OCCUPIED"
-                          ? "bg-[#fef2f2] text-[#ef4444]"
+                          ? "bg-[#FF4D4D] text-white border border-[#B91C1C]"
                           : log.status === "CAUTION"
-                          ? "bg-[#fffbeb] text-[#d97706]"
-                          : "bg-[#ecfdf5] text-[#059669]"
+                          ? "bg-[#FACC15] text-[#0F172A] border border-[#CA8A04]"
+                          : "bg-[#00875A] text-white border border-[#047857]"
                       }`}
                     >
                       {log.status}
@@ -956,63 +993,118 @@ export default function NetworkCommandCenter() {
           </section>
 
 
-          {/* Custom Train Identification & Circumstance Pipeline for Selected Train */}
-          <section className="rounded-2xl border border-[#e2e8f0] bg-white p-5 shadow-xs space-y-4">
+          {/* Authentic Section Control & Interlocking Telemetry Panel */}
+          <section className="rounded-2xl border-2 border-[#1E293B]/20 bg-white p-5 shadow-sm space-y-4">
 
-            <div className="flex items-center justify-between border-b border-[#f1f5f9] pb-3">
+            {/* Header with selected train and section */}
+            <div className="flex items-center justify-between border-b-2 border-[#1E293B]/10 pb-3">
               <div className="flex items-center gap-2">
-                <Sparkles size={18} className="text-[#2563eb]" />
-                <h3 className="text-sm font-bold text-[#0f172a]">
-                  Train Circumstance Engine: Train {currentSelectedTrain.number}
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#0284C7] text-white">
+                  <ShieldCheck size={16} />
+                </div>
+                <h3 className="text-[15px] font-black text-[#0F172A]">
+                  Section Control & Interlocking: Train {currentSelectedTrain.number}
                 </h3>
               </div>
-              <span className="text-[10px] font-mono font-bold text-[#7c3aed] bg-[#f5f3ff] px-2.5 py-1 rounded-full border border-[#ddd6fe]">
-                Confidence: {currentSelectedTrain.confidence}
+              <span className="text-[10px] font-mono font-black text-white bg-[#0284C7] px-2.5 py-1 rounded-full border border-[#0369A1] shadow-2xs">
+                ABS Corridor · SEC: {currentSelectedTrain.section_id}
               </span>
             </div>
 
-            {/* 3-Step Process Flow Cards */}
+            {/* Operational Telemetry Cards */}
             <div className="space-y-2.5 text-xs">
               
-              {/* Step 1 */}
-              <div className="flex items-start gap-3 rounded-xl border border-[#e2e8f0] bg-[#f8fafc] p-3">
-                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#eff6ff] text-[#2563eb] font-bold text-[11px]">
-                  1
+              {/* Telemetry Block 1: Signal Aspect & Route Interlocking */}
+              <div className="rounded-xl border-2 border-[#1E293B]/20 bg-[#FFFBEB] p-3.5 space-y-2 shadow-2xs">
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-1.5 font-black text-[#0F172A]">
+                    <GitBranch size={14} className="text-[#0284C7]" /> Signal Aspect & Route Interlocking
+                  </span>
+                  <span className="flex items-center gap-1 font-mono text-[9px] font-black text-[#00875A] bg-[#00875A]/10 px-2 py-0.5 rounded border border-[#00875A]/30">
+                    <span className="h-1.5 w-1.5 rounded-full bg-[#00875A] animate-pulse" />
+                    ROUTE LOCKED & DETECTED
+                  </span>
                 </div>
-                <div className="min-w-0 flex-1">
-                  <p className="font-bold text-[#0f172a]">Physical Axle Telemetry Detection</p>
-                  <p className="text-[10px] text-[#64748b] mt-0.5">
-                    Sensor <strong className="font-mono text-[#2563eb]">{currentSelectedTrain.section_id}</strong> registered wheel passes. Formation: <strong className="text-[#0f172a]">{currentSelectedTrain.coaches}</strong>.
-                  </p>
+                
+                <div className="grid grid-cols-3 gap-2 pt-1">
+                  <div className="rounded-lg bg-white border border-[#1E293B]/20 p-2">
+                    <span className="text-[9px] font-bold text-[#475569] block">Signal Aspect</span>
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <span className="h-2.5 w-2.5 rounded-full bg-[#00875A] shadow-xs" />
+                      <span className="font-mono font-black text-[11px] text-[#00875A]">CLEAR (Green)</span>
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg bg-white border border-[#1E293B]/20 p-2">
+                    <span className="text-[9px] font-bold text-[#475569] block">Point Machine</span>
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <span className="font-mono font-black text-[11px] text-[#0F172A]">NORMAL (101-A)</span>
+                    </div>
+                  </div>
+
+                  <div className="rounded-lg bg-white border border-[#1E293B]/20 p-2">
+                    <span className="text-[9px] font-bold text-[#475569] block">Headway Buffer</span>
+                    <div className="flex items-center gap-1.5 mt-1">
+                      <Clock3 size={12} className="text-[#0284C7]" />
+                      <span className="font-mono font-black text-[11px] text-[#0284C7]">7.8 km · 5.4m</span>
+                    </div>
+                  </div>
                 </div>
               </div>
 
-              {/* Step 2 */}
-              <div className="flex items-start gap-3 rounded-xl border border-[#e2e8f0] bg-[#f8fafc] p-3">
-                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#f5f3ff] text-[#7c3aed] font-bold text-[11px]">
-                  2
+              {/* Telemetry Block 2: Electrical Traction (OHE) & Track Structure */}
+              <div className="rounded-xl border-2 border-[#1E293B]/20 bg-[#FFFBEB] p-3.5 space-y-2 shadow-2xs">
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-1.5 font-black text-[#0F172A]">
+                    <Zap size={14} className="text-[#FF8A00]" /> 25 kV AC Traction & P-Way Structure
+                  </span>
+                  <span className="font-mono text-[9px] font-black text-[#0284C7] bg-[#0284C7]/10 px-2 py-0.5 rounded border border-[#0284C7]/30">
+                    OHE SUBSTATION STABLE
+                  </span>
                 </div>
-                <div className="min-w-0 flex-1">
-                  <p className="font-bold text-[#0f172a]">Timetable & Network Topology Match</p>
-                  <p className="text-[10px] text-[#64748b] mt-0.5">
-                    Correlated against Working Time Table (WTT): Confirmed Train <strong className="font-mono font-bold text-[#0f172a]">{currentSelectedTrain.number} ({currentSelectedTrain.name})</strong> with <strong className="text-[#059669]">{currentSelectedTrain.confidence} confidence</strong>.
-                  </p>
+
+                <div className="grid grid-cols-3 gap-2 pt-1">
+                  <div className="rounded-lg bg-white border border-[#1E293B]/20 p-2">
+                    <span className="text-[9px] font-bold text-[#475569] block">Feeder Voltage</span>
+                    <span className="font-mono font-black text-[11px] text-[#0F172A] mt-1 block">
+                      24.8 kV <span className="text-[9px] text-[#00875A] font-bold">(±1.2%)</span>
+                    </span>
+                  </div>
+
+                  <div className="rounded-lg bg-white border border-[#1E293B]/20 p-2">
+                    <span className="text-[9px] font-bold text-[#475569] block">Rail Temp (CWR)</span>
+                    <span className="font-mono font-black text-[11px] text-[#00875A] mt-1 block">
+                      +34°C <span className="text-[9px] text-[#475569] font-normal">(Safe &lt;52°C)</span>
+                    </span>
+                  </div>
+
+                  <div className="rounded-lg bg-white border border-[#1E293B]/20 p-2">
+                    <span className="text-[9px] font-bold text-[#475569] block">Axle Redundancy</span>
+                    <span className="font-mono font-black text-[11px] text-[#0284C7] mt-1 block">
+                      CH-A & CH-B <span className="text-[9px] text-[#00875A] font-bold">HOT</span>
+                    </span>
+                  </div>
                 </div>
               </div>
 
-              {/* Step 3 */}
-              <div className="flex items-start gap-3 rounded-xl border border-[#e2e8f0] bg-[#f8fafc] p-3">
-                <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#ecfdf5] text-[#059669] font-bold text-[11px]">
-                  3
+              {/* Telemetry Block 3: Precedence Rule & Section Clearance Status */}
+              <div className="rounded-xl border-2 border-[#1E293B]/20 bg-[#FFFBEB] p-3.5 space-y-1.5 shadow-2xs">
+                <div className="flex items-center justify-between">
+                  <span className="flex items-center gap-1.5 font-black text-[#0F172A]">
+                    <Activity size={14} className="text-[#00875A]" /> Precedence Rule & ETA Projection
+                  </span>
+                  <span className="font-mono text-[9px] font-black text-[#0F172A] bg-white border border-[#1E293B]/20 px-2 py-0.5 rounded">
+                    WTT Rule: 402-B
+                  </span>
                 </div>
-                <div className="min-w-0 flex-1">
-                  <p className="font-bold text-[#0f172a]">Circumstance Assessment & Dynamic ETA</p>
-                  <p className="text-[10px] text-[#64748b] mt-0.5">
-                    {currentSelectedTrain.precedence}. Predicted Destination ETA:{" "}
-                    <strong className="font-mono text-[#2563eb] font-bold">
-                      {currentSelectedTrain.etaDestination} ({currentSelectedTrain.delayMin > 0 ? `+${currentSelectedTrain.delayMin}m delay` : 'On Time'})
-                    </strong>.
-                  </p>
+                <p className="text-[10px] text-[#475569] font-medium leading-relaxed">
+                  <strong className="text-[#0F172A]">Corridor Dispatching:</strong> {currentSelectedTrain.precedence}. Rake formation verified with <strong className="text-[#0F172A]">{currentSelectedTrain.coaches}</strong>.
+                </p>
+                <div className="flex items-center justify-between border-t border-[#1E293B]/10 pt-1.5 text-[10px]">
+                  <span className="text-[#475569]">Predicted Destination ETA:</span>
+                  <strong className="font-mono text-[#0284C7] font-black">
+                    {currentSelectedTrain.etaDestination} {currentSelectedTrain.delayMin > 0 ? `(+${currentSelectedTrain.delayMin}m delay)` : "(On Time)"}
+                  </strong>
                 </div>
               </div>
 
