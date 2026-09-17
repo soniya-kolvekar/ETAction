@@ -107,3 +107,14 @@ dist
 
 # Mac OS
 .DS_Store
+
+# Agent and AI assistant rules
+AGENTS.md
+GEMINI.md
+CLAUDE.md
+frontend/AGENTS.md
+frontend/CLAUDE.md
+
+# Context documentation
+context.md
+
