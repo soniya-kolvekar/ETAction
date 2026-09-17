@@ -199,15 +199,19 @@ function TrackEdge({
   );
 }
 
-// Node and Edge registration
-const nodeTypes = { station: StationNode };
-const edgeTypes = { track: TrackEdge };
+// Static node and edge type definitions
+const STATIC_NODE_TYPES = { station: StationNode };
+const STATIC_EDGE_TYPES = { track: TrackEdge };
 
 /* =========================================================================
    MAIN COMPONENT: AREWETHEREYET UNIFIED CONTROL CENTER
 ========================================================================= */
 export default function NetworkCommandCenter() {
   const router = useRouter();
+
+  // Memoize React Flow node & edge types to eliminate reference warning
+  const memoizedNodeTypes = useMemo(() => STATIC_NODE_TYPES, []);
+  const memoizedEdgeTypes = useMemo(() => STATIC_EDGE_TYPES, []);
 
   // Selected Train Key for Driving Detail Widgets: 'express' | 'freight' | 'coastal'
   const [selectedTrainKey, setSelectedTrainKey] = useState("express");
@@ -216,7 +220,7 @@ export default function NetworkCommandCenter() {
   // MongoDB Summary & Delays
   const [summaryData, setSummaryData] = useState(null);
 
-  // Automated Scenario State (20s cycle matching Slide 1 Scenarios)
+  // Automated Scenario State (20s cycle)
   const [simStep, setSimStep] = useState(0);
   const [lastRefreshed, setLastRefreshed] = useState("");
   const [activeScenario, setActiveScenario] = useState({
@@ -225,7 +229,6 @@ export default function NetworkCommandCenter() {
     color: "#00875a",
     process: "Sensors ping -> Kafka streams -> ETA calculated via physics base -> UI updates",
     latency: "< 1 second",
-    accuracy: "98+%",
     description: "Trains running normally with clear signals and no unexpected restrictions across Hassan & coastal lines."
   });
 
@@ -246,8 +249,7 @@ export default function NetworkCommandCenter() {
       status: "ON_TIME",
       etaDestination: "18:45 IST (KSR Bengaluru)",
       coaches: "24-coach LHB Rake (68 Axles)",
-      precedence: "Primary Green Signal corridor granted",
-      confidence: "98.6%"
+      precedence: "Primary Green Signal corridor granted"
     },
     freight: {
       key: "freight",
@@ -261,8 +263,7 @@ export default function NetworkCommandCenter() {
       status: "HELD_IN_SIDING",
       etaDestination: "22:15 IST (Mysuru Jn)",
       coaches: "58-wagon BCN Freight Rake (116 Axles)",
-      precedence: "Looped in Hassan siding for Express 16526 clearance",
-      confidence: "96.2%"
+      precedence: "Looped in Hassan siding for Express 16526 clearance"
     },
     coastal: {
       key: "coastal",
@@ -276,10 +277,261 @@ export default function NetworkCommandCenter() {
       status: "ON_TIME",
       etaDestination: "11:20 IST (Kundapura)",
       coaches: "18-coach ICF Rake (72 Axles)",
-      precedence: "Coastal single line token automatic block clear",
-      confidence: "99.1%"
+      precedence: "Coastal single line token automatic block clear"
     }
   });
+
+  // Dynamic Route Station Progression for selected train (Vertical line with City nodes & +-time deltas)
+  const routeStationProgressions = useMemo(() => {
+    const expDelay = simStep === 1 ? 6 : simStep === 2 ? 3 : 0;
+    const freightDelay = simStep === 1 ? 18 : simStep === 2 ? 22 : 14;
+    const coastalDelay = simStep === 2 ? 1 : 0;
+
+    return {
+      express: {
+        trainNumber: "16526",
+        trainName: "Kanyakumari Express",
+        trainType: "Superfast Express",
+        corridor: "Mangaluru Jn (MAJN) → KSR Bengaluru (SBC)",
+        totalDistance: "367 km",
+        origin: "MAJN",
+        destination: "SBC",
+        stations: [
+          {
+            code: "MAJN",
+            name: "Mangaluru Junction",
+            dist: "0 km",
+            platform: "PF 2",
+            sched: "12:45",
+            eta: "12:45",
+            delta: 0,
+            status: "PASSED",
+            statusLabel: "Departed"
+          },
+          {
+            code: "SKLR",
+            name: "Sakleshpur",
+            dist: "134 km",
+            platform: "PF 1",
+            sched: "14:20",
+            eta: "14:20",
+            delta: 0,
+            status: "PASSED",
+            statusLabel: "Departed"
+          },
+          {
+            code: "HAS",
+            name: "Hassan Junction",
+            dist: "176 km",
+            platform: "PF 1",
+            sched: "15:10",
+            eta: simStep === 0 ? "15:10" : "15:12",
+            delta: simStep === 0 ? 0 : 2,
+            status: simStep === 0 ? "CURRENT" : "PASSED",
+            statusLabel: simStep === 0 ? "At Station" : "Departed"
+          },
+          {
+            code: "ASK",
+            name: "Arsikere Junction",
+            dist: "223 km",
+            platform: "PF 2",
+            sched: "16:15",
+            eta: expDelay > 0 ? `16:${15 + expDelay}` : "16:15",
+            delta: expDelay,
+            status: simStep === 1 ? "CURRENT" : simStep > 1 ? "PASSED" : "UPCOMING",
+            statusLabel: simStep === 1 ? "Caution Order" : simStep > 1 ? "Departed" : "Upcoming"
+          },
+          {
+            code: "TK",
+            name: "Tumakuru",
+            dist: "296 km",
+            platform: "PF 1",
+            sched: "17:25",
+            eta: expDelay > 0 ? `17:${25 + expDelay}` : "17:25",
+            delta: expDelay,
+            status: simStep === 2 ? "CURRENT" : "UPCOMING",
+            statusLabel: simStep === 2 ? "Next Station" : "Upcoming"
+          },
+          {
+            code: "YPR",
+            name: "Yeshwanthpur Junction",
+            dist: "361 km",
+            platform: "PF 3",
+            sched: "18:05",
+            eta: expDelay > 0 ? `18:${String(5 + expDelay).padStart(2, "0")}` : "18:05",
+            delta: expDelay,
+            status: "UPCOMING",
+            statusLabel: "Upcoming"
+          },
+          {
+            code: "SBC",
+            name: "KSR Bengaluru",
+            dist: "367 km",
+            platform: "PF 8",
+            sched: "18:45",
+            eta: expDelay > 0 ? `18:${45 + expDelay}` : "18:45",
+            delta: expDelay,
+            status: "TERMINAL",
+            statusLabel: "Destination"
+          }
+        ]
+      },
+      freight: {
+        trainNumber: "58210",
+        trainName: "BCN Freight Rake",
+        trainType: "Heavy Goods",
+        corridor: "Mangaluru Port (MAJN) → Mysuru Jn (MYS)",
+        totalDistance: "305 km",
+        origin: "MAJN",
+        destination: "MYS",
+        stations: [
+          {
+            code: "MAJN",
+            name: "Mangaluru Port Yard",
+            dist: "0 km",
+            platform: "Line 4",
+            sched: "08:30",
+            eta: "08:30",
+            delta: 0,
+            status: "PASSED",
+            statusLabel: "Departed"
+          },
+          {
+            code: "SKLR",
+            name: "Sakleshpur Yard",
+            dist: "134 km",
+            platform: "Loop 2",
+            sched: "11:50",
+            eta: "11:55",
+            delta: 5,
+            status: "PASSED",
+            statusLabel: "Departed"
+          },
+          {
+            code: "HAS_SDG",
+            name: "Hassan Freight Loop",
+            dist: "176 km",
+            platform: "Siding Line",
+            sched: "13:40",
+            eta: `13:${40 + (freightDelay % 60)}`,
+            delta: freightDelay,
+            status: "CURRENT",
+            statusLabel: "Held for Precedence"
+          },
+          {
+            code: "HN",
+            name: "Holenarasipur",
+            dist: "208 km",
+            platform: "Line 1",
+            sched: "15:30",
+            eta: `15:${30 + (freightDelay % 60)}`,
+            delta: freightDelay,
+            status: "UPCOMING",
+            statusLabel: "Upcoming"
+          },
+          {
+            code: "KRNR",
+            name: "Krishnarajanagara",
+            dist: "262 km",
+            platform: "Line 2",
+            sched: "18:10",
+            eta: `18:${10 + (freightDelay % 60)}`,
+            delta: freightDelay,
+            status: "UPCOMING",
+            statusLabel: "Upcoming"
+          },
+          {
+            code: "MYS",
+            name: "Mysuru Junction",
+            dist: "305 km",
+            platform: "Yard 1",
+            sched: "21:50",
+            eta: simStep === 0 ? "22:15" : simStep === 1 ? "22:25" : "22:30",
+            delta: freightDelay + 10,
+            status: "TERMINAL",
+            statusLabel: "Destination"
+          }
+        ]
+      },
+      coastal: {
+        trainNumber: "12685",
+        trainName: "Mangaluru-Goa Intercity",
+        trainType: "Intercity Express",
+        corridor: "Mangaluru Central (MAJN) → Kundapura (KUDA)",
+        totalDistance: "100 km",
+        origin: "MAJN",
+        destination: "KUDA",
+        stations: [
+          {
+            code: "MAJN",
+            name: "Mangaluru Central",
+            dist: "0 km",
+            platform: "PF 1",
+            sched: "09:15",
+            eta: "09:15",
+            delta: 0,
+            status: "PASSED",
+            statusLabel: "Departed"
+          },
+          {
+            code: "SL",
+            name: "Surathkal",
+            dist: "22 km",
+            platform: "PF 2",
+            sched: "09:40",
+            eta: "09:40",
+            delta: 0,
+            status: "PASSED",
+            statusLabel: "Departed"
+          },
+          {
+            code: "MULK",
+            name: "Mulki",
+            dist: "31 km",
+            platform: "PF 1",
+            sched: "09:55",
+            eta: "09:56",
+            delta: 1,
+            status: "PASSED",
+            statusLabel: "Departed"
+          },
+          {
+            code: "UD",
+            name: "Udupi",
+            dist: "68 km",
+            platform: "PF 1",
+            sched: "10:20",
+            eta: "10:21",
+            delta: 1,
+            status: simStep === 0 ? "CURRENT" : "PASSED",
+            statusLabel: simStep === 0 ? "At Station" : "Departed"
+          },
+          {
+            code: "BKJ",
+            name: "Barkur",
+            dist: "84 km",
+            platform: "PF 2",
+            sched: "10:45",
+            eta: "10:46",
+            delta: 1,
+            status: simStep > 0 ? "CURRENT" : "UPCOMING",
+            statusLabel: simStep > 0 ? "Passing Block" : "Upcoming"
+          },
+          {
+            code: "KUDA",
+            name: "Kundapura",
+            dist: "100 km",
+            platform: "PF 1",
+            sched: "11:20",
+            eta: coastalDelay > 0 ? "11:21" : "11:20",
+            delta: coastalDelay,
+            status: "TERMINAL",
+            statusLabel: "Destination"
+          }
+        ]
+      }
+    };
+  }, [simStep]);
 
   // Average Network Velocity calculated across active trains
   const networkAverageSpeed = useMemo(() => {
@@ -389,7 +641,6 @@ export default function NetworkCommandCenter() {
         color: "#00875a",
         process: "Sensors ping -> Kafka streams -> ETA calculated via physics base -> UI updates",
         latency: "< 1 second",
-        accuracy: "98+%",
         description: "Trains running normally with clear signals and no unexpected restrictions across Hassan & coastal lines."
       },
       {
@@ -398,7 +649,6 @@ export default function NetworkCommandCenter() {
         color: "#facc15",
         process: "Neo4j detects blockage -> XGBoost recalculates delay -> UI updates smoothly",
         latency: "2-5 seconds",
-        accuracy: "90-95%",
         description: "Temporary Caution Order on SEC_HAS_ASK (30 km/h ceiling); Dynamic delay calculated and auto-propagated (+6m)."
       },
       {
@@ -407,7 +657,6 @@ export default function NetworkCommandCenter() {
         color: "#ff4d4d",
         process: "Pipeline detects missing ping -> Pandas imputes historical average -> ETA maintained",
         latency: "10-15 seconds",
-        accuracy: "85-90%",
         description: "Axle counter ping dropped at SEC_ASK_YPR; Imputation engine active; Express 16526 tracked via run profile."
       }
     ];
@@ -422,25 +671,25 @@ export default function NetworkCommandCenter() {
 
         if (next === 0) {
           setTrainStates({
-            express: { key: "express", number: "16526", name: "Kanyakumari Exp", type: "Superfast Express", section_id: "SEC_MAJN_HAS", speed: 79.2, axlesPerSec: 4.28, delayMin: 0, status: "ON_TIME", etaDestination: "18:45 IST (KSR Bengaluru)", coaches: "24-coach LHB Rake (68 Axles)", precedence: "Primary Green Signal corridor granted", confidence: "98.6%" },
-            freight: { key: "freight", number: "58210", name: "BCN Freight Rake", type: "Heavy Goods", section_id: "LOOP_HAS_SIDING", speed: 0.0, axlesPerSec: 0.0, delayMin: 14, status: "HELD_IN_SIDING", etaDestination: "22:15 IST (Mysuru Jn)", coaches: "58-wagon BCN Freight Rake (116 Axles)", precedence: "Looped in Hassan siding for Express 16526 clearance", confidence: "96.2%" },
-            coastal: { key: "coastal", number: "12685", name: "Mangaluru-Goa Intercity", type: "Express", section_id: "SEC_MAJN_UD", speed: 82.5, axlesPerSec: 4.45, delayMin: 1, status: "ON_TIME", etaDestination: "11:20 IST (Kundapura)", coaches: "18-coach ICF Rake (72 Axles)", precedence: "Coastal single line token automatic block clear", confidence: "99.1%" }
+            express: { key: "express", number: "16526", name: "Kanyakumari Exp", type: "Superfast Express", section_id: "SEC_MAJN_HAS", speed: 79.2, axlesPerSec: 4.28, delayMin: 0, status: "ON_TIME", etaDestination: "18:45 IST (KSR Bengaluru)", coaches: "24-coach LHB Rake (68 Axles)", precedence: "Primary Green Signal corridor granted" },
+            freight: { key: "freight", number: "58210", name: "BCN Freight Rake", type: "Heavy Goods", section_id: "LOOP_HAS_SIDING", speed: 0.0, axlesPerSec: 0.0, delayMin: 14, status: "HELD_IN_SIDING", etaDestination: "22:15 IST (Mysuru Jn)", coaches: "58-wagon BCN Freight Rake (116 Axles)", precedence: "Looped in Hassan siding for Express 16526 clearance" },
+            coastal: { key: "coastal", number: "12685", name: "Mangaluru-Goa Intercity", type: "Express", section_id: "SEC_MAJN_UD", speed: 82.5, axlesPerSec: 4.45, delayMin: 1, status: "ON_TIME", etaDestination: "11:20 IST (Kundapura)", coaches: "18-coach ICF Rake (72 Axles)", precedence: "Coastal single line token automatic block clear" }
           });
           setActiveCautionSection(null);
           setSensorLogs((p) => [{ id: `log-${Date.now()}-${(Math.random() * 1e6) | 0}`, time: nowStr, sensor: "AC_IN_SEC_MAJN_HAS", event: "AXLE_PULSE_ENTRY", axles: 68, speed: "79.2 km/h", status: "OCCUPIED" }, ...p.slice(0, 6)]);
         } else if (next === 1) {
           setTrainStates({
-            express: { key: "express", number: "16526", name: "Kanyakumari Exp", type: "Superfast Express", section_id: "SEC_HAS_ASK", speed: 29.4, axlesPerSec: 1.59, delayMin: 6, status: "DELAYED", etaDestination: "18:51 IST (KSR Bengaluru)", coaches: "24-coach LHB Rake (68 Axles)", precedence: "Caution order speed ceiling (30 km/h enforced)", confidence: "97.4%" },
-            freight: { key: "freight", number: "58210", name: "BCN Freight Rake", type: "Heavy Goods", section_id: "LOOP_HAS_SIDING", speed: 0.0, axlesPerSec: 0.0, delayMin: 18, status: "HELD_IN_SIDING", etaDestination: "22:25 IST (Mysuru Jn)", coaches: "58-wagon BCN Freight Rake (116 Axles)", precedence: "Looped in Hassan siding for Express 16526 clearance", confidence: "96.2%" },
-            coastal: { key: "coastal", number: "12685", name: "Mangaluru-Goa Intercity", type: "Express", section_id: "SEC_UD_KUDA", speed: 85.0, axlesPerSec: 4.6, delayMin: 0, status: "ON_TIME", etaDestination: "11:21 IST (Kundapura)", coaches: "18-coach ICF Rake (72 Axles)", precedence: "Automatic block token clear", confidence: "99.1%" }
+            express: { key: "express", number: "16526", name: "Kanyakumari Exp", type: "Superfast Express", section_id: "SEC_HAS_ASK", speed: 29.4, axlesPerSec: 1.59, delayMin: 6, status: "DELAYED", etaDestination: "18:51 IST (KSR Bengaluru)", coaches: "24-coach LHB Rake (68 Axles)", precedence: "Caution order speed ceiling (30 km/h enforced)" },
+            freight: { key: "freight", number: "58210", name: "BCN Freight Rake", type: "Heavy Goods", section_id: "LOOP_HAS_SIDING", speed: 0.0, axlesPerSec: 0.0, delayMin: 18, status: "HELD_IN_SIDING", etaDestination: "22:25 IST (Mysuru Jn)", coaches: "58-wagon BCN Freight Rake (116 Axles)", precedence: "Looped in Hassan siding for Express 16526 clearance" },
+            coastal: { key: "coastal", number: "12685", name: "Mangaluru-Goa Intercity", type: "Express", section_id: "SEC_UD_KUDA", speed: 85.0, axlesPerSec: 4.6, delayMin: 0, status: "ON_TIME", etaDestination: "11:21 IST (Kundapura)", coaches: "18-coach ICF Rake (72 Axles)", precedence: "Automatic block token clear" }
           });
           setActiveCautionSection("SEC_HAS_ASK");
           setSensorLogs((p) => [{ id: `log-${Date.now()}-${(Math.random() * 1e6) | 0}`, time: nowStr, sensor: "AC_IN_SEC_HAS_ASK", event: "TCO_RESTRICTION_TRIGGER", axles: 68, speed: "29.4 km/h (Capped)", status: "CAUTION" }, ...p.slice(0, 6)]);
         } else {
           setTrainStates({
-            express: { key: "express", number: "16526", name: "Kanyakumari Exp", type: "Superfast Express", section_id: "SEC_ASK_YPR", speed: 94.8, axlesPerSec: 5.12, delayMin: 3, status: "ON_TIME", etaDestination: "18:48 IST (KSR Bengaluru)", coaches: "24-coach LHB Rake (68 Axles)", precedence: "Pandas missing ping imputation active", confidence: "88.5%" },
-            freight: { key: "freight", number: "58210", name: "BCN Freight Rake", type: "Heavy Goods", section_id: "SEC_HAS_MYS", speed: 42.0, axlesPerSec: 2.27, delayMin: 22, status: "DELAYED", etaDestination: "22:30 IST (Mysuru Jn)", coaches: "58-wagon BCN Freight Rake (116 Axles)", precedence: "Departed siding towards Mysuru", confidence: "95.5%" },
-            coastal: { key: "coastal", number: "12685", name: "Mangaluru-Goa Intercity", type: "Express", section_id: "SEC_UD_KUDA", speed: 76.2, axlesPerSec: 4.12, delayMin: 0, status: "ON_TIME", etaDestination: "11:22 IST (Kundapura)", coaches: "18-coach ICF Rake (72 Axles)", precedence: "Approaching Kundapura platform line", confidence: "99.1%" }
+            express: { key: "express", number: "16526", name: "Kanyakumari Exp", type: "Superfast Express", section_id: "SEC_ASK_YPR", speed: 94.8, axlesPerSec: 5.12, delayMin: 3, status: "ON_TIME", etaDestination: "18:48 IST (KSR Bengaluru)", coaches: "24-coach LHB Rake (68 Axles)", precedence: "Pandas missing ping imputation active" },
+            freight: { key: "freight", number: "58210", name: "BCN Freight Rake", type: "Heavy Goods", section_id: "SEC_HAS_MYS", speed: 42.0, axlesPerSec: 2.27, delayMin: 22, status: "DELAYED", etaDestination: "22:30 IST (Mysuru Jn)", coaches: "58-wagon BCN Freight Rake (116 Axles)", precedence: "Departed siding towards Mysuru" },
+            coastal: { key: "coastal", number: "12685", name: "Mangaluru-Goa Intercity", type: "Express", section_id: "SEC_UD_KUDA", speed: 76.2, axlesPerSec: 4.12, delayMin: 0, status: "ON_TIME", etaDestination: "11:22 IST (Kundapura)", coaches: "18-coach ICF Rake (72 Axles)", precedence: "Approaching Kundapura platform line" }
           });
           setActiveCautionSection(null);
           setSensorLogs((p) => [{ id: `log-${Date.now()}-${(Math.random() * 1e6) | 0}`, time: nowStr, sensor: "AC_SYS_FAIL_SEC_ASK_YPR", event: "IMPUTED_AVERAGE_PATCH", axles: 68, speed: "94.8 km/h (Imputed)", status: "OCCUPIED" }, ...p.slice(0, 6)]);
@@ -455,6 +704,7 @@ export default function NetworkCommandCenter() {
 
   // Currently selected train object (for driving telemetry widgets)
   const currentSelectedTrain = trainStates[selectedTrainKey] || trainStates.express;
+  const selectedRoute = routeStationProgressions[selectedTrainKey] || routeStationProgressions.express;
 
   // React Flow clicks
   const onNodeClick = useCallback((_, node) => {
@@ -469,41 +719,37 @@ export default function NetworkCommandCenter() {
     <main className="min-h-screen bg-[#FAF7EE] text-[#0F172A] pb-12">
 
       {/* =====================================================
-          TOP NAVIGATION HEADER (SIH 2026 PRESENTATION IDENTITY)
+          TOP NAVIGATION HEADER (EXECUTIVE SLEEK IDENTITY)
       ====================================================== */}
-      <header className="sticky top-0 z-40 border-b-2 border-[#1E293B]/15 bg-[#FAF7EE]/95 backdrop-blur-md">
-        <div className="mx-auto flex h-[66px] max-w-[1600px] items-center justify-between px-5 lg:px-8">
+      <header className="sticky top-0 z-40 border-b border-[#1E293B]/10 bg-[#FAF7EE]/90 backdrop-blur-md">
+        <div className="mx-auto flex h-[64px] max-w-[1600px] items-center justify-between px-5 lg:px-8">
 
-          {/* Left: Brand "AreWeThereYet" */}
+          {/* Left: Brand "AreWeThereYet?" */}
           <div className="flex items-center gap-3">
-            <div className="flex h-[40px] w-[40px] items-center justify-center rounded-xl bg-[#FF8A00] text-white shadow-xs border-2 border-[#1E293B]">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-[#FF8A00] to-[#EA580C] text-white shadow-xs border border-[#1E293B]/20 transition-transform duration-200 hover:scale-105">
               <TrainFront size={22} />
             </div>
 
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-[18px] font-black tracking-tight text-[#0F172A]">
-                  AreWeThereYet
-                </span>
-                <span className="rounded-full bg-[#0284C7] px-2.5 py-0.5 text-[9px] font-black text-white border border-[#0369A1] shadow-2xs">
-                  Smart India Hackathon 2026
-                </span>
-              </div>
-              <p className="text-[10px] font-medium text-[#475569]">
-                Real-Time Physical Sensing · Axle Counter Topology · Dynamic ETA System
-              </p>
+            <div className="flex items-center gap-3">
+              <span className="text-xl font-black tracking-tight text-[#0F172A] select-none">
+                AreWeThereYet<span className="text-[#FF8A00]">?</span>
+              </span>
+              <span className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-[#00875A]/10 text-[#00875A] border border-[#00875A]/25">
+                <span className="h-1.5 w-1.5 rounded-full bg-[#00875A] animate-pulse" />
+                Live Telemetry
+              </span>
             </div>
           </div>
 
           {/* Right: GHAZAL Team Badge & Sync DB Button */}
           <div className="flex items-center gap-3">
-            <span className="inline-flex items-center rounded-full border-2 border-[#1E293B] bg-white px-4 py-1.5 text-xs font-black text-[#0F172A] shadow-2xs tracking-wider uppercase">
+            <span className="inline-flex items-center rounded-full border border-[#1E293B]/20 bg-white px-3.5 py-1 text-[11px] font-black text-[#0F172A] shadow-2xs tracking-wider uppercase">
               GHAZAL
             </span>
             <button
               type="button"
               onClick={loadDashboardData}
-              className="flex items-center gap-1.5 rounded-xl border-2 border-[#1E293B] bg-white px-3.5 py-1.5 text-[11px] font-black text-[#0F172A] shadow-xs transition hover:bg-[#FF8A00] hover:text-white"
+              className="flex items-center gap-1.5 rounded-xl border border-[#1E293B]/20 bg-white px-3.5 py-1.5 text-xs font-bold text-[#0F172A] shadow-2xs transition-all hover:border-[#0284C7] hover:text-[#0284C7] hover:shadow-xs active:scale-98"
             >
               <RefreshCw size={13} />
               Sync DB
@@ -520,13 +766,13 @@ export default function NetworkCommandCenter() {
       <div className="mx-auto max-w-[1600px] w-full px-5 py-6 lg:px-8 space-y-6">
 
         {/* =====================================================
-            1. TOP METRIC CARDS (SIH HIGH-CONTRAST PALETTE)
+            1. TOP METRIC CARDS (EXECUTIVE OVERVIEW)
         ====================================================== */}
-        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+        <div className="grid grid-cols-2 gap-3.5 sm:grid-cols-2 lg:grid-cols-4">
 
-          <div className="rounded-2xl border-2 border-[#1E293B]/20 bg-white p-4 shadow-sm hover:border-[#1E293B] transition">
+          <div className="rounded-2xl border border-[#1E293B]/15 bg-white p-4 shadow-xs hover:border-[#1E293B]/40 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
             <div className="flex items-center justify-between text-[#64748b]">
-              <span className="text-[10px] font-black uppercase tracking-wider text-[#475569]">Monitored Blocks</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[#64748B]">Monitored Blocks</span>
               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#0284C7] text-white border border-[#0369A1] shadow-2xs">
                 <Layers size={14} />
               </div>
@@ -539,9 +785,9 @@ export default function NetworkCommandCenter() {
             </div>
           </div>
 
-          <div className="rounded-2xl border-2 border-[#1E293B]/20 bg-white p-4 shadow-sm hover:border-[#1E293B] transition">
+          <div className="rounded-2xl border border-[#1E293B]/15 bg-white p-4 shadow-xs hover:border-[#1E293B]/40 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
             <div className="flex items-center justify-between text-[#64748b]">
-              <span className="text-[10px] font-black uppercase tracking-wider text-[#475569]">Active Trains</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[#64748B]">Active Trains</span>
               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#FF8A00] text-white border border-[#EA580C] shadow-2xs">
                 <TrainFront size={14} />
               </div>
@@ -555,9 +801,9 @@ export default function NetworkCommandCenter() {
           </div>
 
           {/* STAT CARD: NETWORK FLOW VELOCITY */}
-          <div className="rounded-2xl border-2 border-[#1E293B]/20 bg-white p-4 shadow-sm hover:border-[#1E293B] transition">
+          <div className="rounded-2xl border border-[#1E293B]/15 bg-white p-4 shadow-xs hover:border-[#1E293B]/40 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
             <div className="flex items-center justify-between text-[#64748b]">
-              <span className="text-[10px] font-black uppercase tracking-wider text-[#475569]">Network Velocity</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[#64748B]">Network Velocity</span>
               <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#FACC15] text-[#0F172A] border border-[#CA8A04] shadow-2xs">
                 <Gauge size={14} />
               </div>
@@ -570,9 +816,9 @@ export default function NetworkCommandCenter() {
             </div>
           </div>
 
-          <div className="rounded-2xl border-2 border-[#1E293B]/20 bg-white p-4 shadow-sm hover:border-[#1E293B] transition">
+          <div className="rounded-2xl border border-[#1E293B]/15 bg-white p-4 shadow-xs hover:border-[#1E293B]/40 hover:shadow-md hover:-translate-y-0.5 transition-all duration-200">
             <div className="flex items-center justify-between text-[#64748b]">
-              <span className="text-[10px] font-black uppercase tracking-wider text-[#475569]">Caution Orders</span>
+              <span className="text-[10px] font-bold uppercase tracking-wider text-[#64748B]">Caution Orders</span>
               <div className={`flex h-7 w-7 items-center justify-center rounded-lg border shadow-2xs ${activeCautionSection ? 'bg-[#FF4D4D] text-white border-[#DC2626]' : 'bg-[#00875A] text-white border-[#047857]'}`}>
                 <AlertTriangle size={14} />
               </div>
@@ -585,108 +831,236 @@ export default function NetworkCommandCenter() {
             </div>
           </div>
 
-          <div className="rounded-2xl border-2 border-[#1E293B]/20 bg-white p-4 shadow-sm hover:border-[#1E293B] transition">
-            <div className="flex items-center justify-between text-[#64748b]">
-              <span className="text-[10px] font-black uppercase tracking-wider text-[#475569]">ETA Accuracy</span>
-              <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#0F4C81] text-white border border-[#0A3358] shadow-2xs">
-                <ShieldCheck size={14} />
-              </div>
-            </div>
-            <div className="mt-2 text-2xl font-black text-[#0F172A]">
-              98.4%
-            </div>
-            <div className="mt-1 text-[10px] font-bold text-[#00875A]">
-              Ground-Truth Calibrated
-            </div>
-          </div>
-
         </div>
 
 
         {/* =====================================================
-            2. 2D RAILWAY NETWORK CANVAS (20s REFRESH CADENCE)
+            2. 2D RAILWAY NETWORK CANVAS & ROUTE TIMELINE
         ====================================================== */}
-        <section className="rounded-2xl border-2 border-[#1E293B]/20 bg-white p-6 shadow-sm space-y-4">
+        <section className="rounded-2xl border border-[#1E293B]/15 bg-white p-6 shadow-sm space-y-4">
           
-          {/* Header & Slide 1 Scenario Banner */}
-          <div className="flex flex-col justify-between gap-4 border-b-2 border-[#1E293B]/10 pb-4 lg:flex-row lg:items-center">
+          {/* Header */}
+          <div className="flex flex-col justify-between gap-4 border-b border-[#1E293B]/10 pb-4 lg:flex-row lg:items-center">
             <div>
-              <div className="flex items-center gap-2">
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#0284C7] text-white border border-[#0369A1]">
-                  <Route size={16} />
+              <div className="flex items-center gap-2.5">
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#0284C7] text-white border border-[#0369A1] shadow-2xs">
+                  <Route size={15} />
                 </div>
                 <h2 className="text-[16px] font-black text-[#0F172A]">
                   Block Section Network Topology & Sensor Grid
                 </h2>
-                <span className="rounded-full bg-[#00875A] border border-[#047857] px-2.5 py-0.5 text-[9px] font-black text-white shadow-2xs">
-                  20s Cycle Active
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-[#00875A]/10 border border-[#00875A]/25 px-2.5 py-0.5 text-[10px] font-bold text-[#00875A]">
+                  <span className="h-1.5 w-1.5 rounded-full bg-[#00875A] animate-pulse" />
+                  Live Topology
                 </span>
               </div>
-              <p className="mt-0.5 text-[11px] font-medium text-[#475569]">
+              <p className="mt-0.5 text-[11px] font-medium text-[#64748B]">
                 Real-time block occupancy from track circuits & axle counters. Click any station or track section to inspect telemetry.
               </p>
             </div>
 
-            {/* Current Scenario Card (Slide 1 "How we work?") */}
-            <div className="flex items-center gap-3 rounded-xl bg-[#FFFBEB] border-2 border-[#1E293B]/20 px-3.5 py-2 shadow-2xs">
-              <div
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg text-white font-black shadow-2xs"
-                style={{
-                  backgroundColor:
-                    activeScenario.tag === "NORMAL_OPERATION"
-                      ? "#00875A"
-                      : activeScenario.tag === "DYNAMIC_DISRUPTION"
-                      ? "#FACC15"
-                      : "#FF4D4D",
-                  color: activeScenario.tag === "DYNAMIC_DISRUPTION" ? "#0F172A" : "#FFFFFF",
-                }}
-              >
-                <Activity size={16} />
-              </div>
-              <div className="min-w-0">
-                <div className="flex items-center gap-2">
-                  <span className="text-[11px] font-black text-[#0F172A]">{activeScenario.name}</span>
-                  <span
-                    className="rounded px-2 py-0.5 text-[8px] font-mono font-black"
-                    style={{
-                      backgroundColor:
-                        activeScenario.tag === "NORMAL_OPERATION"
-                          ? "#00875A"
-                          : activeScenario.tag === "DYNAMIC_DISRUPTION"
-                          ? "#FACC15"
-                          : "#FF4D4D",
-                      color: activeScenario.tag === "DYNAMIC_DISRUPTION" ? "#0F172A" : "#FFFFFF",
-                    }}
-                  >
-                    AUTO 20s
-                  </span>
-                </div>
-                <p className="text-[9px] text-[#475569] font-medium truncate max-w-[360px]">
-                  {activeScenario.description}
-                </p>
-              </div>
+            <div className="flex items-center gap-2">
+              <span className="rounded-xl border border-[#1E293B]/15 bg-[#FAF7EE] px-3.5 py-1.5 text-[11px] font-medium text-[#475569] shadow-2xs">
+                South Western Railway · <strong className="text-[#00875A] font-bold">Division Active</strong>
+              </span>
             </div>
           </div>
 
-          {/* REACT FLOW CANVAS CONTAINER (SPACIOUS 560px HEIGHT) */}
-          <div className="h-[560px] w-full rounded-xl border-2 border-[#1E293B]/20 bg-[#FDFBF7] relative overflow-hidden">
-            <ReactFlow
-              nodes={nodes}
-              edges={edges}
-              onNodesChange={onNodesChange}
-              onEdgesChange={onEdgesChange}
-              nodeTypes={nodeTypes}
-              edgeTypes={edgeTypes}
-              onNodeClick={onNodeClick}
-              onEdgeClick={onEdgeClick}
-              fitView
-              fitViewOptions={{ padding: 0.15 }}
-              minZoom={0.35}
-              maxZoom={1.5}
-            >
-              <Background variant="dots" gap={16} size={1} color="#cbd5e1" />
-              <Controls className="bg-white border-2 border-[#1E293B]/30 shadow-xs rounded-xl" />
-            </ReactFlow>
+          {/* 2D NETWORK CANVAS (8 COLS) & LONG VERTICAL ROUTE PROGRESSION PANEL (4 COLS) */}
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-5">
+            
+            {/* 2D React Flow Network Topology */}
+            <div className="lg:col-span-8 h-[580px] w-full rounded-xl border-2 border-[#1E293B]/20 bg-[#FDFBF7] relative overflow-hidden shadow-xs">
+              <ReactFlow
+                nodes={nodes}
+                edges={edges}
+                onNodesChange={onNodesChange}
+                onEdgesChange={onEdgesChange}
+                nodeTypes={memoizedNodeTypes}
+                edgeTypes={memoizedEdgeTypes}
+                onNodeClick={onNodeClick}
+                onEdgeClick={onEdgeClick}
+                fitView
+                fitViewOptions={{ padding: 0.15 }}
+                minZoom={0.35}
+                maxZoom={1.5}
+              >
+                <Background variant="dots" gap={16} size={1} color="#cbd5e1" />
+                <Controls className="bg-white border-2 border-[#1E293B]/30 shadow-xs rounded-xl" />
+              </ReactFlow>
+            </div>
+
+            {/* Vertical Route Station ETA Timeline Panel */}
+            <div className="lg:col-span-4 h-[580px] flex flex-col rounded-xl border-2 border-[#1E293B]/20 bg-[#FAF7EE] p-4 shadow-xs overflow-hidden">
+              
+              {/* Header */}
+              <div className="flex items-center justify-between border-b-2 border-[#1E293B]/15 pb-2.5">
+                <div className="flex items-center gap-2">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-[#0284C7] text-white shadow-2xs">
+                    <Route size={15} />
+                  </div>
+                  <div>
+                    <h3 className="text-[13px] font-black text-[#0F172A] tracking-tight uppercase">
+                      Route Station ETAs
+                    </h3>
+                    <p className="text-[9px] font-medium text-[#475569]">
+                      Dynamic Route Progression Timeline
+                    </p>
+                  </div>
+                </div>
+                <span className="font-mono text-[10px] font-black text-[#0F172A] bg-white border border-[#1E293B]/30 px-2 py-0.5 rounded-md shadow-2xs">
+                  Train {selectedRoute.trainNumber}
+                </span>
+              </div>
+
+              {/* Train Selector Quick Tabs */}
+              <div className="py-2.5">
+                <div className="flex items-center gap-1.5 p-1 rounded-xl bg-white border border-[#1E293B]/20 shadow-2xs">
+                  {[
+                    { key: "express", num: "16526", label: "Express" },
+                    { key: "freight", num: "58210", label: "Freight" },
+                    { key: "coastal", num: "12685", label: "Coastal" },
+                  ].map((tab) => {
+                    const isActive = selectedTrainKey === tab.key;
+                    return (
+                      <button
+                        key={tab.key}
+                        type="button"
+                        onClick={() => setSelectedTrainKey(tab.key)}
+                        className={`flex-1 py-1.5 px-2 rounded-lg text-center transition-all ${
+                          isActive
+                            ? "bg-[#0284C7] text-white shadow-xs border border-[#0369A1]"
+                            : "text-[#475569] hover:bg-[#FAF7EE] hover:text-[#0F172A]"
+                        }`}
+                      >
+                        <span className="font-mono block text-[10px] font-black leading-tight">{tab.num}</span>
+                        <span className="text-[8px] font-bold block">{tab.label}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+
+                {/* Corridor & Total Distance */}
+                <div className="mt-2 flex items-center justify-between text-[10px] font-bold text-[#475569] px-1">
+                  <span className="truncate max-w-[210px] text-[#0F172A]">{selectedRoute.corridor}</span>
+                  <span className="font-mono text-[#0284C7] shrink-0 font-black">{selectedRoute.totalDistance}</span>
+                </div>
+              </div>
+
+              {/* Scrollable Vertical Station Node Timeline */}
+              <div className="flex-1 overflow-y-auto pr-1 relative space-y-0.5">
+                {/* Continuous Vertical Route Track Line */}
+                <div className="absolute left-[17px] top-[18px] bottom-[18px] w-[3px] bg-[#CBD5E1] rounded-full" />
+
+                {selectedRoute.stations.map((station) => {
+                  const isPassed = station.status === "PASSED";
+                  const isCurrent = station.status === "CURRENT";
+                  const isTerminal = station.status === "TERMINAL";
+
+                  const deltaVal = station.delta || 0;
+                  const deltaFormatted = deltaVal > 0 ? `+${deltaVal}m` : deltaVal < 0 ? `${deltaVal}m` : "+0m";
+                  
+                  const deltaBadgeClass = 
+                    deltaVal === 0
+                      ? "bg-[#ECFDF5] text-[#047857] border-[#A7F3D0]"
+                      : deltaVal <= 6
+                      ? "bg-[#FEF9C3] text-[#A16207] border-[#FDE047]"
+                      : "bg-[#FEF2F2] text-[#B91C1C] border-[#FCA5A5]";
+
+                  return (
+                    <div key={station.code} className="relative flex items-start gap-3 pb-3 last:pb-1 group">
+                      
+                      {/* Station Node Marker */}
+                      <div className="z-10 mt-1">
+                        {isPassed ? (
+                          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#00875A] text-white shadow-2xs border-2 border-white">
+                            <CheckCircle2 size={13} strokeWidth={3} />
+                          </div>
+                        ) : isCurrent ? (
+                          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-[#0284C7] text-white shadow-md border-2 border-white ring-4 ring-[#0284C7]/30 animate-pulse">
+                            <TrainFront size={13} strokeWidth={2.5} />
+                          </div>
+                        ) : (
+                          <div className="flex h-6 w-6 items-center justify-center rounded-full bg-white text-[#64748B] border-2 border-[#1E293B]/40 shadow-2xs">
+                            <div className={`h-2 w-2 rounded-full ${isTerminal ? 'bg-[#FF4D4D]' : 'bg-[#94A3B8]'}`} />
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Station Card */}
+                      <div className={`flex-1 rounded-xl border p-2.5 shadow-2xs transition-all ${
+                        isCurrent 
+                          ? "bg-white border-2 border-[#0284C7] ring-2 ring-[#0284C7]/15" 
+                          : "bg-white border-[#1E293B]/15 hover:border-[#1E293B]/40"
+                      }`}>
+                        {/* Station Code, Name, Delta Badge */}
+                        <div className="flex items-center justify-between gap-1">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <span className="font-mono text-[9px] font-black bg-[#FEF9C3] px-1 py-0.2 rounded border border-[#1E293B]/30 text-[#0F172A] shrink-0">
+                              {station.code}
+                            </span>
+                            <span className="text-[11px] font-black text-[#0F172A] truncate">
+                              {station.name}
+                            </span>
+                          </div>
+
+                          {/* +-time Badge */}
+                          <span className={`font-mono text-[9px] font-black px-1.5 py-0.5 rounded-full border shrink-0 shadow-2xs ${deltaBadgeClass}`}>
+                            {deltaFormatted}
+                          </span>
+                        </div>
+
+                        {/* Timetable vs Predicted ETA */}
+                        <div className="mt-1.5 flex items-center justify-between text-[10px]">
+                          <div className="flex items-center gap-1 text-[#64748B]">
+                            <span>Sched:</span>
+                            <span className="font-mono font-bold text-[#0F172A]">{station.sched}</span>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span className="text-[#64748B]">ETA:</span>
+                            <span className={`font-mono font-black ${isCurrent ? 'text-[#0284C7] text-[11px]' : 'text-[#0F172A]'}`}>
+                              {station.eta}
+                            </span>
+                          </div>
+                        </div>
+
+                        {/* Platform & Status */}
+                        <div className="mt-1 flex items-center justify-between border-t border-[#1E293B]/10 pt-1 text-[9px] text-[#64748B]">
+                          <span>{station.dist} · {station.platform}</span>
+                          <span className={`font-bold ${
+                            isPassed 
+                              ? 'text-[#00875A]' 
+                              : isCurrent 
+                              ? 'text-[#0284C7] font-black' 
+                              : 'text-[#64748B]'
+                          }`}>
+                            {station.statusLabel}
+                          </span>
+                        </div>
+                      </div>
+
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Panel Footer */}
+              <div className="mt-2 border-t-2 border-[#1E293B]/15 pt-2 flex items-center justify-between text-[10px]">
+                <div className="flex items-center gap-1 text-[#475569]">
+                  <Clock3 size={12} className="text-[#0284C7]" />
+                  <span>Overall Route Delay:</span>
+                </div>
+                <span className={`font-mono font-black px-2 py-0.5 rounded text-[10px] ${
+                  currentSelectedTrain.delayMin > 0
+                    ? "bg-[#FEF2F2] text-[#B91C1C] border border-[#FCA5A5]"
+                    : "bg-[#ECFDF5] text-[#047857] border border-[#A7F3D0]"
+                }`}>
+                  {currentSelectedTrain.delayMin > 0 ? `+${currentSelectedTrain.delayMin}m` : "+0m (On Time)"}
+                </span>
+              </div>
+
+            </div>
+
           </div>
 
           {/* Legend & Selected Details Readout */}
@@ -696,7 +1070,7 @@ export default function NetworkCommandCenter() {
             <div className="flex flex-wrap items-center gap-4 text-[10px]">
               <div className="flex items-center gap-1.5">
                 <span className="h-3 w-3 rounded-full bg-[#00875A] border border-[#047857]" />
-                <span className="font-bold text-[#475569]">Clear Block (Scenario 1)</span>
+                <span className="font-bold text-[#475569]">Clear Block</span>
               </div>
               <div className="flex items-center gap-1.5">
                 <span className="h-3 w-3 rounded-full bg-[#FF4D4D] border border-[#B91C1C]" />
@@ -712,7 +1086,7 @@ export default function NetworkCommandCenter() {
               </div>
               <div className="flex items-center gap-1.5">
                 <span className="h-3 w-3 rounded-full bg-[#FACC15] border border-[#CA8A04]" />
-                <span className="font-bold text-[#475569]">Caution Order / TCO (Scenario 2)</span>
+                <span className="font-bold text-[#475569]">Caution Order / TCO</span>
               </div>
             </div>
 
